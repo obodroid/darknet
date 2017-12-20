@@ -21,7 +21,6 @@ float get_color(int c, int x, int max)
     int j = ceil(ratio);
     ratio -= i;
     float r = (1-ratio) * colors[i][c] + ratio*colors[j][c];
-    //printf("%f\n", r);
     return r;
 }
 
@@ -52,12 +51,6 @@ static float get_pixel(image m, int x, int y, int c)
 static float get_pixel_extend(image m, int x, int y, int c)
 {
     if(x < 0 || x >= m.w || y < 0 || y >= m.h) return 0;
-    /*
-    if(x < 0) x = 0;
-    if(x >= m.w) x = m.w-1;
-    if(y < 0) y = 0;
-    if(y >= m.h) y = m.h-1;
-    */
     if(c < 0 || c >= m.c) return 0;
     return get_pixel(m, x, y, c);
 }
@@ -256,22 +249,11 @@ void draw_detections(image im, int num, float thresh, box *boxes, float **probs,
         }
         if(class >= 0){
             int width = im.h * .006;
-
-            /*
-               if(0){
-               width = pow(prob, 1./2.)*10+1;
-               alphabet = 0;
-               }
-             */
-
-            //printf("%d %s: %.0f%%\n", i, names[class], prob*100);
             int offset = class*123457 % classes;
             float red = get_color(2,offset,classes);
             float green = get_color(1,offset,classes);
             float blue = get_color(0,offset,classes);
             float rgb[3];
-
-            //width = prob*20+2;
 
             rgb[0] = red;
             rgb[1] = green;
@@ -511,12 +493,10 @@ void show_image_cv(image p, const char *name, IplImage *disp)
     //normalize_image(copy);
 
     char buff[256];
-    //sprintf(buff, "%s (%d)", name, windows);
     sprintf(buff, "%s", name);
 
     int step = disp->widthStep;
-    cvNamedWindow(buff, CV_WINDOW_NORMAL); 
-    //cvMoveWindow(buff, 100*(windows%10) + 200*(windows/10), 100*(windows%10));
+    cvNamedWindow(buff, CV_WINDOW_NORMAL);
     ++windows;
     for(y = 0; y < p.h; ++y){
         for(x = 0; x < p.w; ++x){
@@ -604,7 +584,6 @@ image load_image_cv(char *filename, int channels)
         sprintf(buff, "echo %s >> bad.list", filename);
         system(buff);
         return make_image(10,10,3);
-        //exit(0);
     }
     image out = ipl_to_image(src);
     cvReleaseImage(&src);
@@ -665,7 +644,6 @@ void save_image_jpg(image p, const char *name)
 void save_image_png(image im, const char *name)
 {
     char buff[256];
-    //sprintf(buff, "%s (%d)", name, windows);
     sprintf(buff, "%s.png", name);
     unsigned char *data = calloc(im.w*im.h*im.c, sizeof(char));
     int i,k;
@@ -940,8 +918,6 @@ image letterbox_image(image im, int w, int h)
     image resized = resize_image(im, new_w, new_h);
     image boxed = make_image(w, h, im.c);
     fill_image(boxed, .5);
-    //int i;
-    //for(i = 0; i < boxed.w*boxed.h*boxed.c; ++i) boxed.data[i] = 0;
     embed_image(resized, boxed, (w-new_w)/2, (h-new_h)/2); 
     free_image(resized);
     return boxed;
@@ -999,8 +975,6 @@ augment_args random_augment_args(image im, float angle, float aspect, int low, i
 
     float dx = (im.w*scale/aspect - w) / 2.;
     float dy = (im.h*scale - w) / 2.;
-    //if(dx < 0) dx = 0;
-    //if(dy < 0) dy = 0;
     dx = rand_uniform(-dx, dx);
     dy = rand_uniform(-dy, dy);
 
@@ -1561,15 +1535,6 @@ void show_image_normalized(image im, const char *name)
 void show_images(image *ims, int n, char *window)
 {
     image m = collapse_images_vert(ims, n);
-    /*
-       int w = 448;
-       int h = ((float)m.h/m.w) * 448;
-       if(h > 896){
-       h = 896;
-       w = ((float)m.w/m.h) * 896;
-       }
-       image sized = resize_image(m, w, h);
-     */
     normalize_image(m);
     save_image(m, window);
     show_image(m, window);
