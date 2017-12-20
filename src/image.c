@@ -270,6 +270,7 @@ void draw_detections(image im, int num, float thresh, box *boxes, float **probs,
             if(top < 0) top = 0;
             if(bot > im.h-1) bot = im.h-1;
 
+            printf("bbox: left=%d,top=%d,right=%d,bottom=%d\n", left, top, right, bot);
             draw_box_width(im, left, top, right, bot, width, red, green, blue);
             if (alphabet) {
                 image label = get_label(alphabet, labelstr, (im.h*.03)/10);
