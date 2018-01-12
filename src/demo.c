@@ -37,6 +37,7 @@ static int demo_index = 0;
 static int demo_done = 0;
 static float *avg;
 double demo_time;
+char input[64];
 
 void *detect_in_thread(void *ptr)
 {
@@ -72,6 +73,17 @@ void *fetch_in_thread(void *ptr)
     int status = fill_image_from_stream(cap, buff[buff_index]);
     letterbox_image_into(buff[buff_index], net->w, net->h, buff_letter[buff_index]);
     if(status == 0) demo_done = 1;
+    return 0;
+}
+
+void *input_in_thread(void *vargs)
+{
+    while(1){
+        // printf("waiting for input : \n");
+        // fflush(stdout);
+        scanf("%s",input);
+    }
+
     return 0;
 }
 
@@ -126,6 +138,7 @@ void demo(char *cfgfile, char *weightfile, float thresh, int cam_index, const ch
     set_batch_network(net, 1);
     pthread_t detect_thread;
     pthread_t fetch_thread;
+    pthread_t input_thread;
 
     srand(2222222);
 
@@ -179,11 +192,15 @@ void demo(char *cfgfile, char *weightfile, float thresh, int cam_index, const ch
     }
 
     demo_time = what_time_is_it_now();
+    
+    //create input thread for receiving input from stdin
+    if(pthread_create(&input_thread, 0, input_in_thread, 0)) error("Thread creation failed");
 
     while(!demo_done){
         buff_index = (buff_index + 1) %3;
         if(pthread_create(&fetch_thread, 0, fetch_in_thread, 0)) error("Thread creation failed");
         if(pthread_create(&detect_thread, 0, detect_in_thread, 0)) error("Thread creation failed");
+       
         if(!prefix){
             fps = 1./(what_time_is_it_now() - demo_time);
             demo_time = what_time_is_it_now();
@@ -195,9 +212,13 @@ void demo(char *cfgfile, char *weightfile, float thresh, int cam_index, const ch
         }
         pthread_join(fetch_thread, 0);
         pthread_join(detect_thread, 0);
+
         ++count;
         printf("keyframe: %d\n", count);
+        printf("output: %s\n", input);
     }
+
+    pthread_join(input_thread, 0);
 }
 
 void demo_compare(char *cfg1, char *weight1, char *cfg2, char *weight2, float thresh, int cam_index, const char *filename, char **names, int classes, int delay, char *prefix, int avg_frames, float hier, int w, int h, int frames, int fullscreen)
