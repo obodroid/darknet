@@ -79,8 +79,6 @@ void *fetch_in_thread(void *ptr)
 void *input_in_thread(void *vargs)
 {
     while(1){
-        // printf("waiting for input : \n");
-        // fflush(stdout);
         scanf("%s",input);
     }
 
@@ -205,17 +203,19 @@ void demo(char *cfgfile, char *weightfile, float thresh, int cam_index, const ch
             fps = 1./(what_time_is_it_now() - demo_time);
             demo_time = what_time_is_it_now();
             display_in_thread(0);
-        }else{
+        }
+	    if(*input){
             char name[256];
             sprintf(name, "%s_%08d", prefix, count);
             save_image(buff[(buff_index + 1)%3], name);
+            printf("filename: %s: %s\n", input, name);
+            sprintf(input, "");
         }
         pthread_join(fetch_thread, 0);
         pthread_join(detect_thread, 0);
 
         ++count;
         printf("keyframe: %d\n", count);
-        printf("output: %s\n", input);
     }
 
     pthread_join(input_thread, 0);
