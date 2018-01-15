@@ -228,7 +228,7 @@ image **load_alphabet()
     return alphabets;
 }
 
-void draw_detections(image im, int num, float thresh, box *boxes, float **probs, float **masks, char **names, image **alphabet, int classes)
+void draw_detections(image im, int num, float thresh, box *boxes, float **probs, float **masks, char **names, image **alphabet, int classes, int draw_bbox)
 {
     int i,j;
 
@@ -273,12 +273,15 @@ void draw_detections(image im, int num, float thresh, box *boxes, float **probs,
             printf("bbox: left=%d,top=%d,right=%d,bottom=%d\n", left, top, right, bot);
             fflush(stdout);
 
-            draw_box_width(im, left, top, right, bot, width, red, green, blue);
-            if (alphabet) {
-                image label = get_label(alphabet, labelstr, (im.h*.03)/10);
-                draw_label(im, top + width, left, label, rgb);
-                free_image(label);
+            if (draw_bbox){
+                draw_box_width(im, left, top, right, bot, width, red, green, blue);
+                if (alphabet) {
+                    image label = get_label(alphabet, labelstr, (im.h*.03)/10);
+                    draw_label(im, top + width, left, label, rgb);
+                    free_image(label);
+                }
             }
+
             if (masks){
                 image mask = float_to_image(14, 14, 1, masks[i]);
                 image resized_mask = resize_image(mask, b.w*im.w, b.h*im.h);

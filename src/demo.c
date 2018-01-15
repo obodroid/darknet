@@ -30,6 +30,7 @@ static float demo_thresh = 0;
 static float demo_hier = .5;
 static int running = 0;
 
+static int demo_bbox = 1;
 static int demo_frame = 3;
 static int demo_detections = 0;
 static float **predictions;
@@ -61,7 +62,7 @@ void *detect_in_thread(void *ptr)
     if (nms > 0) do_nms_obj(boxes, probs, l.w*l.h*l.n, l.classes, nms);
     
     image display = buff[(buff_index+2) % 3];
-    draw_detections(display, demo_detections, demo_thresh, boxes, probs, 0, demo_names, demo_alphabet, demo_classes);
+    draw_detections(display, demo_detections, demo_thresh, boxes, probs, 0, demo_names, demo_alphabet, demo_classes, demo_bbox);
 
     demo_index = (demo_index + 1)%demo_frame;
     running = 0;
@@ -121,7 +122,7 @@ void *detect_loop(void *ptr)
     }
 }
 
-void demo(char *cfgfile, char *weightfile, float thresh, int cam_index, const char *filename, char **names, int classes, int delay, char *prefix, int avg_frames, float hier, int w, int h, int frames, int fullscreen)
+void demo(char *cfgfile, char *weightfile, float thresh, int cam_index, const char *filename, char **names, int classes, int delay, char *prefix, int avg_frames, float hier, int w, int h, int frames, int fullscreen, int bbox)
 {
     demo_frame = avg_frames;
     predictions = calloc(demo_frame, sizeof(float*));
@@ -131,6 +132,7 @@ void demo(char *cfgfile, char *weightfile, float thresh, int cam_index, const ch
     demo_classes = classes;
     demo_thresh = thresh;
     demo_hier = hier;
+    demo_bbox = bbox;
     printf("Demo\n");
     net = load_network(cfgfile, weightfile, 0);
     set_batch_network(net, 1);
@@ -309,7 +311,7 @@ void demo_compare(char *cfg1, char *weight1, char *cfg2, char *weight2, float th
     }
 }
 #else
-void demo(char *cfgfile, char *weightfile, float thresh, int cam_index, const char *filename, char **names, int classes, int delay, char *prefix, int avg, float hier, int w, int h, int frames, int fullscreen)
+void demo(char *cfgfile, char *weightfile, float thresh, int cam_index, const char *filename, char **names, int classes, int delay, char *prefix, int avg, float hier, int w, int h, int frames, int fullscreen, int bbox)
 {
     fprintf(stderr, "Demo needs OpenCV for webcam images.\n");
 }
