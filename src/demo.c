@@ -273,12 +273,14 @@ void demo(char *cfgfile, char *weightfile, float thresh, int cam_index, const ch
             sprintf(name, "%s_%08d", prefix, count);
             save_image(buff[(buff_index + 1)%3], name);
             printf("filename: %s: %s\n", input, name);
+            fflush(stdout);
             sprintf(input, "");
         }
         pthread_join(fetch_thread, 0);
         pthread_join(detect_thread, 0);
         ++count;
         printf("keyframe: %d\n", count);
+        fflush(stdout);
     }
 
     pthread_join(input_thread, 0);
