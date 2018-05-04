@@ -87,6 +87,8 @@ detection *avg_predictions(network *net, int *nboxes)
 
 void *detect_in_thread(void *ptr)
 {
+    int keyframe = *((int*)ptr);
+    printf("display_in_thread keyframe : %d\n", keyframe);
     running = 1;
     float nms = .4;
 
@@ -262,7 +264,7 @@ void demo(char *cfgfile, char *weightfile, float thresh, int cam_index, const ch
     while(!demo_done){
         buff_index = (buff_index + 1) %3;
         if(pthread_create(&fetch_thread, 0, fetch_in_thread, 0)) error("Thread creation failed");
-        if(pthread_create(&detect_thread, 0, detect_in_thread, 0)) error("Thread creation failed");
+        if(pthread_create(&detect_thread, 0, detect_in_thread, (void*)&count)) error("Thread creation failed");
         if(!prefix){
             fps = 1./(what_time_is_it_now() - demo_time);
             demo_time = what_time_is_it_now();
@@ -271,7 +273,7 @@ void demo(char *cfgfile, char *weightfile, float thresh, int cam_index, const ch
 	    if(*input){
             char name[256];
             sprintf(name, "%s_%08d", prefix, count);
-            save_image(buff[(buff_index + 1)%3], name);
+            save_image(buff[(buff_index + 2)%3], name);
             printf("filename: %s: %s\n", input, name);
             fflush(stdout);
             sprintf(input, "");
