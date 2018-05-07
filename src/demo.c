@@ -88,7 +88,6 @@ detection *avg_predictions(network *net, int *nboxes)
 void *detect_in_thread(void *ptr)
 {
     int keyframe = *((int*)ptr);
-    printf("display_in_thread keyframe : %d\n", keyframe);
     running = 1;
     float nms = .4;
 
@@ -130,7 +129,7 @@ void *detect_in_thread(void *ptr)
     if (nms > 0) do_nms_obj(dets, nboxes, l.classes, nms);
 
     image display = buff[(buff_index+2) % 3];
-    draw_detections(display, dets, nboxes, demo_thresh, demo_names, demo_alphabet, demo_classes, demo_bbox);
+    draw_detections_keyframe(display, dets, nboxes, demo_thresh, demo_names, demo_alphabet, demo_classes, demo_bbox, keyframe);
     free_detections(dets, nboxes);
 
     demo_index = (demo_index + 1)%demo_frame;
@@ -272,16 +271,17 @@ void demo(char *cfgfile, char *weightfile, float thresh, int cam_index, const ch
         }
 	    if(*input){
             char name[256];
-            sprintf(name, "%s_%08d", prefix, count);
+            int save_frame = atoi(input);
+            sprintf(name, "%s_%08d", prefix, save_frame);
             save_image(buff[(buff_index + 2)%3], name);
-            printf("filename: %s: %s\n", input, name);
+            printf("filename: %d: %s##\n", save_frame, name);
             fflush(stdout);
             sprintf(input, "");
         }
         pthread_join(fetch_thread, 0);
         pthread_join(detect_thread, 0);
         ++count;
-        printf("keyframe: %d\n", count);
+        
         fflush(stdout);
     }
 

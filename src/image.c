@@ -228,26 +228,40 @@ image **load_alphabet()
     }
     return alphabets;
 }
-
 void draw_detections(image im, detection *dets, int num, float thresh, char **names, image **alphabet, int classes, int draw_bbox)
+{
+    draw_detections_keyframe(im, dets, num, thresh, names, alphabet, classes, draw_bbox, -1);
+}
+
+void draw_detections_keyframe(image im, detection *dets, int num, float thresh, char **names, image **alphabet, int classes, int draw_bbox, int keyframe)
 {
     int i,j;
 
     for(i = 0; i < num; ++i){
         char labelstr[4096] = {0};
         int class = -1;
+        float max_prob = 0.0f;
+
         for(j = 0; j < classes; ++j){
             if (dets[i].prob[j] > thresh){
                 if (class < 0) {
                     strcat(labelstr, names[j]);
                     class = j;
+                    max_prob = dets[i].prob[j];
                 } else {
                     strcat(labelstr, ", ");
                     strcat(labelstr, names[j]);
+                    float current_prob = dets[i].prob[j];
+
+                    if (current_prob > max_prob) {
+                        max_prob = current_prob;
+                        class = j;
+                    }
                 }
-                printf("%s: %.0f%%\n", names[j], dets[i].prob[j]*100);
+                // printf("%s: %.0f%%\n", names[j], dets[i].prob[j]*100);
             }
         }
+
         if(class >= 0){
             int width = im.h * .006;
             int offset = class*123457 % classes;
@@ -272,8 +286,14 @@ void draw_detections(image im, detection *dets, int num, float thresh, char **na
             if(top < 0) top = 0;
             if(bot > im.h-1) bot = im.h-1;
 
-            printf("bbox: left=%d,top=%d,right=%d,bottom=%d\n", left, top, right, bot);
+            printf("%s: %.0f%%##", names[class], max_prob*100);
+            printf("bbox: left=%d,top=%d,right=%d,bottom=%d##", left, top, right, bot);
+            if (keyframe >= 0) printf("keyframe: %d##\n", keyframe);
             fflush(stdout);
+            // printf("%s: %.0f%%\n", names[class], max_prob*100);
+            // printf("bbox: left=%d,top=%d,right=%d,bottom=%d\n", left, top, right, bot);
+            // if (keyframe >= 0) printf("keyframe: %d\n", keyframe);
+            // fflush(stdout);
 
             if (draw_bbox){
                 draw_box_width(im, left, top, right, bot, width, red, green, blue);
