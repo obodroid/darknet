@@ -26,3 +26,6 @@ Thumbs.db
 *.swp
 
 .idea
+
+libdarknet.a
+libdarknet.so
