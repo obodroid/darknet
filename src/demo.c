@@ -261,6 +261,8 @@ void demo(char *cfgfile, char *weightfile, float thresh, int cam_index, const ch
     if(pthread_create(&input_thread, 0, input_in_thread, 0)) error("Thread creation failed");
 
     while(!demo_done){
+        printf("processing video: - %d\n", count);
+        fflush(stdout);
         buff_index = (buff_index + 1) %3;
         if(pthread_create(&fetch_thread, 0, fetch_in_thread, 0)) error("Thread creation failed");
         if(pthread_create(&detect_thread, 0, detect_in_thread, (void*)&count)) error("Thread creation failed");
@@ -285,6 +287,8 @@ void demo(char *cfgfile, char *weightfile, float thresh, int cam_index, const ch
         fflush(stdout);
     }
 
+    printf("video close - %d\n", demo_time);
+    fflush(stdout);
     pthread_join(input_thread, 0);
 }
 
