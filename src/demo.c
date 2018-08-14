@@ -200,7 +200,7 @@ void demo(char *cfgfile, char *weightfile, float thresh, int cam_index, const ch
     demo_thresh = thresh;
     demo_hier = hier;
     demo_bbox = bbox;
-    printf("Demo\n");
+    printf("Demo YOLO\n");
     net = load_network(cfgfile, weightfile, 0);
     set_batch_network(net, 1);
     pthread_t detect_thread;
@@ -216,13 +216,15 @@ void demo(char *cfgfile, char *weightfile, float thresh, int cam_index, const ch
         predictions[i] = calloc(demo_total, sizeof(float));
     }
     avg = calloc(demo_total, sizeof(float));
-
+    
     if(filename){
         printf("video file: %s\n", filename);
         cap = cvCaptureFromFile(filename);
+        w = cvGetCaptureProperty(cap, CV_CAP_PROP_FRAME_WIDTH);
+        h = cvGetCaptureProperty(cap, CV_CAP_PROP_FRAME_HEIGHT);
+        frames = cvGetCaptureProperty(cap, CV_CAP_PROP_FPS);
     }else{
         cap = cvCaptureFromCAM(cam_index);
-
         if(w){
             cvSetCaptureProperty(cap, CV_CAP_PROP_FRAME_WIDTH, w);
         }
@@ -235,6 +237,7 @@ void demo(char *cfgfile, char *weightfile, float thresh, int cam_index, const ch
     }
 
     if(!cap) error("Couldn't connect to webcam.\n");
+    printf("Capture video width:%d, height:%d, fps:%d\n",w,h,frames);
 
     buff[0] = get_image_from_stream(cap);
     buff[1] = copy_image(buff[0]);
@@ -271,6 +274,7 @@ void demo(char *cfgfile, char *weightfile, float thresh, int cam_index, const ch
             demo_time = what_time_is_it_now();
             display_in_thread(0);
         }
+
 	    if(*input){
             char name[256];
             int save_frame = atoi(input);
