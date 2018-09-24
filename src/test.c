@@ -3,6 +3,13 @@
 #include <sys/time.h>
 #include "test.h"
 
+double get_current_time()
+{
+    struct timeval tv = {0};
+    gettimeofday(&tv, NULL);
+    return tv.tv_sec + ((double)tv.tv_usec / 1000000);
+}
+
 int main(int argc, char* argv[])
 {
     int pos_frames;
@@ -10,12 +17,13 @@ int main(int argc, char* argv[])
     printf("video file: %s\n", filename);
 
     clock_t start_clock = clock();
-    struct timeval tv = {0};
-    gettimeofday(&tv, NULL);
-    double start_time = tv.tv_sec + ((double)tv.tv_usec / 1000000);
+    double start_time = get_current_time();
 
     CvCapture* cap = cvCaptureFromFile(filename);
+    double current_time = get_current_time();
+
     printf("capture from file (clock): %f seconds\n", (double)(clock() - start_clock) / CLOCKS_PER_SEC);
+    printf("capture from file (real time): %f seconds\n", current_time - start_time);
 
     int w = cvGetCaptureProperty(cap, CV_CAP_PROP_FRAME_WIDTH);
     int h = cvGetCaptureProperty(cap, CV_CAP_PROP_FRAME_HEIGHT);
@@ -32,13 +40,12 @@ int main(int argc, char* argv[])
         printf("frame index: %d\n", pos_frames);
         
         start_clock = clock();
-        gettimeofday(&tv, NULL);
-        double current_time = tv.tv_sec + ((double)tv.tv_usec / 1000000);
+        current_time = get_current_time();
 
         frame = cvQueryFrame(cap);
 
         printf("query frame %d (clock): %f seconds\n", pos_frames, (double)(clock() - start_clock) / CLOCKS_PER_SEC);
-        printf("latency from start (real time): %f seconds\n", current_time - start_time);
+        printf("time from start (real time): %f seconds\n", current_time - start_time);
 
         if(!frame) break;
         cvShowImage("video", frame);
