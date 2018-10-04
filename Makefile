@@ -83,6 +83,9 @@ $(SLIB): $(OBJS)
 $(OBJDIR)%.o: %.c $(DEPS)
 	$(CC) $(COMMON) $(CFLAGS) -c $< -o $@
 
+$(OBJDIR)%.o: %.cpp $(DEPS)
+	$(CC) $(COMMON) $(CFLAGS) -c $< -o $@
+
 $(OBJDIR)%.o: %.cu $(DEPS)
 	$(NVCC) $(ARCH) $(COMMON) --compiler-options "$(CFLAGS)" -c $< -o $@
 

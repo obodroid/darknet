@@ -798,5 +798,12 @@ int *read_intlist(char *s, int *n, int d);
 size_t rand_size_t();
 float rand_normal();
 float rand_uniform(float min, float max);
+#endif
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+void print_stream_name(const char* stream_name);
+#ifdef __cplusplus
+}
 #endif
