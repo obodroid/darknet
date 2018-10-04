@@ -72,7 +72,7 @@ DEPS = $(wildcard src/*.h) Makefile include/darknet.h
 all: obj  results $(SLIB) $(ALIB) $(EXEC)
 
 $(EXEC): $(EXECOBJ) $(ALIB)
-	$(CC) $(COMMON) $(CFLAGS) $^ -o $@ $(LDFLAGS) $(ALIB)
+	$(CC) $(COMMON) $(CFLAGS) $^ -o $@ $(LDFLAGS) $(ALIB) -lstdc++
 
 $(ALIB): $(OBJS)
 	$(AR) $(ARFLAGS) $@ $^
