@@ -1,7 +1,7 @@
 #include <stdio.h>
 #include <time.h>
 #include <sys/time.h>
-#include "test.h"
+#include "darknet.h"
 
 double get_current_time()
 {
@@ -10,10 +10,9 @@ double get_current_time()
     return tv.tv_sec + ((double)tv.tv_usec / 1000000);
 }
 
-int main(int argc, char* argv[])
+void test_stream(const char *filename)
 {
     int pos_frames;
-    char* filename = argv[1];
     printf("video file: %s\n", filename);
 
     clock_t start_clock = clock();
@@ -52,6 +51,4 @@ int main(int argc, char* argv[])
         char c = cvWaitKey(1);
         if(c == 27) break;
     }
-    
-    return 0;
 }

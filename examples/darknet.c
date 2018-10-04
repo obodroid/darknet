@@ -462,7 +462,9 @@ int main(int argc, char **argv)
         composite_3d(argv[2], argv[3], argv[4], (argc > 5) ? atof(argv[5]) : 0);
     } else if (0 == strcmp(argv[1], "test")){
         test_resize(argv[2]);
-    } else if (0 == strcmp(argv[1], "captcha")){
+    } else if (0 == strcmp(argv[1], "stream")){
+        test_stream(argv[2]);
+    }  else if (0 == strcmp(argv[1], "captcha")){
         run_captcha(argc, argv);
     } else if (0 == strcmp(argv[1], "nightmare")){
         run_nightmare(argc, argv);
