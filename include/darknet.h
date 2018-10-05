@@ -804,6 +804,7 @@ float rand_uniform(float min, float max);
 extern "C" {
 #endif
 void print_stream_name(const char* stream_name);
+void run_stream(const char* stream_name);
 #ifdef __cplusplus
 }
 #endif

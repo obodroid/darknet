@@ -13,8 +13,9 @@ double get_current_time()
 void test_stream(const char *filename)
 {
     int pos_frames;
-    print_stream_name(filename);
-    // VideoCapture* cap = cvCreateStreamCapture(filename);
+    run_stream(filename);
+    return;
+    // CvCapture* cap = cvCreateStreamCapture(filename);
 
     clock_t start_clock = clock();
     double start_time = get_current_time();
