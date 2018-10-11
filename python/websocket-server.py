@@ -57,7 +57,7 @@ tls_key = os.path.join(fileDir, 'tls', 'server.key')
 parser = argparse.ArgumentParser()
 parser.add_argument('--shapePredictor', type=str, help="Path to dlib's shape predictor.",
                     default="")
-parser.add_argument('--port', type=int, default=9001,
+parser.add_argument('--port', type=int, default=9000,
                     help='WebSocket Port')
 args = parser.parse_args()
 
