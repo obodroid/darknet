@@ -12,4 +12,4 @@ matplotlib >= 1.4, <= 2.2.2
 numpy >= 1.1, < 2.0
 pandas >= 0.13, < 0.18
 ptvsd == 3.0.0
-opencv-contrib-python
+websocket-client >= 0.50
