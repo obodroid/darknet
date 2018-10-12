@@ -61,14 +61,12 @@ parser.add_argument('--port', type=int, default=9000,
                     help='WebSocket Port')
 args = parser.parse_args()
 
-class RorServerProtocol(WebSocketServerProtocol):
+class DarknetServerProtocol(WebSocketServerProtocol):
     def __init__(self):
-        super(RorServerProtocol, self).__init__()
+        super(DarknetServerProtocol, self).__init__()
 
     def onConnect(self, request):
         print("Client connecting: {0}".format(request.peer))
-        msg = 'Your id : {0}'.format(request.peer)
-        msg = msg.encode('utf8')
 
     def onOpen(self):
         print("WebSocket connection open.")
@@ -76,87 +74,29 @@ class RorServerProtocol(WebSocketServerProtocol):
     def onMessage(self, payload, isBinary):
         raw = payload.decode('utf8')
         print("server raw msg - {}".format(raw))
-        self.sendMessage('server send')
-        # msg = json.loads(raw)
+        msg = json.loads(raw)
 
-        # if msg['type'] == "ALL_STATE":
-        #     self.loadState(msg['images'], msg['training'], msg['people'])
-        # elif msg['type'] == "NULL":
-        #     self.sendMessage('{"type": "NULL"}')
-        # elif msg['type'] == "FRAME":
-        #     print("\n on message: FRAME \n")
-        #     from datetime import datetime
-        #     from time import sleep
-
-        #     def mockStartThread():  # used for increasing thread pool size
-        #         sleep(5)
-        #     if len(reactor.getThreadPool().threads) < 10:
-        #         reactor.callLater(
-        #             0, lambda: reactor.callInThread(mockStartThread))
-
-        #     now = datetime.now()
-        #     time_diff = now - \
-        #         datetime.strptime(msg['time'], '%Y-%m-%dT%H:%M:%S.%fZ')
-        #     print("frame latency: {}".format(time_diff))
-        #     if time_diff.seconds < 1:
-        #         reactor.callLater(
-        #             0, lambda: reactor.callInThread(self.processFrame, msg))
-        #         self.sendMessage('{"type": "PROCESSED"}')
-        #     else:
-        #         print("drop delayed frame")
-        # elif msg['type'] == "PROCESS_RECENT_FACE":
-        #     self.processRecentFace = msg['val']
-        # elif msg['type'] == "ENABLE_CLASSIFIER":
-        #     self.enableClassifier = msg['val']
-        # elif msg['type'] == "TRAINING":
-        #     self.training = msg['val']
-        #     if not self.training:
-        #         self.trainClassifier()
-        # elif msg['type'] == 'SET_MAX_FACE_ID':
-        #     self.faceId = int(msg['val']) + 1
-        # elif msg['type'] == "REQ_SYNC_IDENTITY":
-        #     def getPeople(peopleId, label): return {
-        #         'peopleId': peopleId,
-        #         'label': label
-        #     }
-        #     newMsg = {
-        #         "type": "SYNC_IDENTITY",
-        #         "people": map(getPeople, self.people.keys(), self.people.values())
-        #     }
-        #     self.sendMessage(json.dumps(newMsg))
-        # elif msg['type'] == "UPDATE_IDENTITY":
-        #     h = msg['hash'].encode('ascii', 'ignore')
-        #     if h in self.images:
-        #         self.images[h].identity = msg['idx']
-        #         if not self.training:
-        #             self.trainClassifier()
-        #     else:
-        #         print("Image not found.")
-        # elif msg['type'] == "REMOVE_IMAGE":
-        #     h = msg['hash'].encode('ascii', 'ignore')
-        #     if h in self.images:
-        #         del self.images[h]
-        #         if not self.training:
-        #             self.trainClassifier()
-        #     else:
-        #         print("Image not found.")
-        # elif msg['type'] == 'REQ_TSNE':
-        #     self.sendTSNE(msg['people'] if 'people' in msg else self.people)
-        # elif msg['type'] == 'CLASSIFY':
-        #     self.classifyFace(np.array(msg['rep']))
-        # else:
-        #     print("Warning: Unknown message type: {}".format(msg['type']))
+        if msg['type'] == "START":
+            print("START - {}".format(msg['type']))
+            self.processFrame(msg)
+        elif msg['type'] == "STOP":
+            print("STOP - {}".format(msg['type']))
+        elif msg['type'] == "ECHO":
+            print("ECHO - {}".format(msg['type']))
+            self.sendMessage(json.dumps(msg))
+        else:
+            print("Warning: Unknown message type: {}".format(msg['type']))
 
     def onClose(self, wasClean, code, reason):
         print("WebSocket connection closed: {0}".format(reason))
 
     def processFrame(self, msg):
-        print("processFrame")
+        print("processFrame - {}".format(json.dumps(msg)))
 
 def main(reactor):
     log.startLogging(sys.stdout)
     factory = WebSocketServerFactory()
-    factory.protocol = RorServerProtocol
+    factory.protocol = DarknetServerProtocol
     ctx_factory = DefaultOpenSSLContextFactory(tls_key, tls_crt)
     reactor.listenSSL(args.port, factory, ctx_factory)
     return Deferred()
