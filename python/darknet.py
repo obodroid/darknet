@@ -8,6 +8,10 @@ import threading
 from random import randint
 from twisted.internet import task, reactor, threads
 from twisted.internet.defer import Deferred, inlineCallbacks
+import os
+import sys
+fileDir = os.path.dirname(os.path.realpath(__file__))
+sys.path.append(os.path.join(fileDir, ".."))
 
 # parser = argparse.ArgumentParser()
 # parser.add_argument('--configPath', type=str, help="Path to yolo's cfg.",default="cfg/yolov3.cfg")
@@ -168,6 +172,12 @@ predict_image = lib.network_predict_image
 predict_image.argtypes = [c_void_p, IMAGE]
 predict_image.restype = POINTER(c_float)
 
+configPath = "/src/darknet/cfg/yolov3.cfg"
+weightPath = "/src/data/yolo/yolov3.weights"
+metaPath = "/src/darknet/cfg/coco.data"
+thresh=.8
+hier_thresh=.5
+nms=.45
 
 def classify(net, meta, im):
     out = predict_image(net, im)
@@ -290,7 +300,7 @@ def detect(net, meta, image, thresh=.5, hier_thresh=.5, nms=.45):
 
 
 class Detector():
-    def __init__(self, robotId, videoId,stream):
+    def __init__(self, robotId, videoId, stream, callback):
         print "Detector Inited"
         self.video = None
         self.robotId = robotId
@@ -299,16 +309,19 @@ class Detector():
         self.video_serial = robotId + "-" + videoId
         self.worker = threading.Thread(target=self.detectStream)
         self.worker.isStop = False
+        self.callback = callback
 
     def runVideo(self):
         self.worker.start()
 
     def detectStream(self):
+        net = load_net(configPath, weightPath, 0)
+        meta = load_meta(metaPath)
         self.video = cv2.VideoCapture(self.stream)
         self.video.set(cv2.CAP_PROP_BUFFERSIZE,10)
         print("run VideoCapture isOpen - {}".format(self.video.isOpened()))
-        
         count = 0
+        
         while self.video.isOpened() and (self.worker.isStop == False):
             res, frame = self.video.read()
             # ws.send("read video - "+str(count))
@@ -317,23 +330,58 @@ class Detector():
             if not res:
                 print "no res"
                 break
-            
+            frame = self.processFrame(frame, count, net, meta)
             ### want to show display ###
-            # cv2.imshow(self.video_serial, frame)
-            # if cv2.waitKey(1) == ord('q'):
-            #     break        
-            print("{} : res - {}, count - {}".format(self.video_serial,res,count))
+            cv2.imshow(self.video_serial, frame)
+            if cv2.waitKey(1) == ord('q'):
+                break
             count += 1
 
         # //TODO event video finish/stop
         self.video.release()
         print("stopStream VideoCapture - {}".format(self.video_serial))
-        ### want to show display then destroy ###
-        # cv2.destroyWindow(self.video_serial)
+        if self.worker.isAlive():
+            try:
+                self.worker._Thread__stop()
+            except:
+                print(self.worker.getName() + ' could not be terminated')
+            ### want to show display then destroy ###
+            # cv2.destroyWindow(self.video_serial)
+    
+    def processFrame(self,frame,keyframe,net,meta):
+        classes_box_colors = [(0, 0, 255), (0, 255, 0)]  #red for palmup --> stop, green for thumbsup --> go
+        classes_font_colors = [(255, 255, 0), (0, 255, 255)]
+
+        rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        im, arr = array_to_image(rgb_frame)
+        
+        num = c_int(0)
+        pnum = pointer(num)
+        predict_image(net, im)
+        dets = get_network_boxes(net, im.w, im.h, thresh, hier_thresh, None, 0, pnum)
+        num = pnum[0]
+        if (nms): do_nms_obj(dets, num, meta.classes, nms);
+        # res = []
+
+        for j in range(num):
+            for i in range(meta.classes):
+                if dets[j].prob[i] > 0:
+                    detected = "{}  at keyframe {}: object - {},prob - {}".format(self.video_serial,keyframe,meta.names[i],dets[j].prob[i])    
+                    self.callback(detected)
+                    b = dets[j].bbox
+                    x1 = int(b.x - b.w / 2.)
+                    y1 = int(b.y - b.h / 2.)
+                    x2 = int(b.x + b.w / 2.)
+                    y2 = int(b.y + b.h / 2.)
+                    cv2.rectangle(frame, (x1, y1), (x2, y2), classes_box_colors[1], 2)
+                    cv2.putText(frame, meta.names[i], (x1, y1 - 20), 1, 1, classes_font_colors[0], 2, cv2.LINE_AA)
+
+        return frame
 
     # //TODO function stop
     def stopStream(self):
         self.worker.isStop = True
+        print("stopStream self.worker.isStop - {} >> {}".format(self.video_serial,self.worker.isStop))
     
     
 # if __name__ == "__main__":

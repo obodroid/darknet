@@ -14,7 +14,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-import darknet
+
 import ptvsd
 
 # Allow other computers to attach to ptvsd at this IP address and port, using the secret
@@ -61,6 +61,8 @@ parser.add_argument('--shapePredictor', type=str, help="Path to dlib's shape pre
 parser.add_argument('--port', type=int, default=9000,
                     help='WebSocket Port')
 args = parser.parse_args()
+
+import darknet
 
 class DarknetServerProtocol(WebSocketServerProtocol):
     def __init__(self):
@@ -115,10 +117,13 @@ class DarknetServerProtocol(WebSocketServerProtocol):
             return
         # stream = "rtsp://admin:Obodroid@192.168.110.185/streaming/channels/1"
         
-        detector = darknet.Detector(robotId,videoId,stream)
+        detector = darknet.Detector(robotId,videoId,stream,self.detectCallback)
         detector.runVideo()
         self.detectors[video_serial] = detector
-
+    
+    def detectCallback(self, msg):
+        print("callback msg - {}".format(msg))
+        
 def main(reactor):
     log.startLogging(sys.stdout)
     factory = WebSocketServerFactory()
