@@ -4,6 +4,7 @@ import random
 import argparse
 import cv2
 import numpy as np
+import threading
 from random import randint
 from twisted.internet import task, reactor, threads
 from twisted.internet.defer import Deferred, inlineCallbacks
@@ -289,42 +290,50 @@ def detect(net, meta, image, thresh=.5, hier_thresh=.5, nms=.45):
 
 
 class Detector():
-    def __init__(self):
+    def __init__(self, robotId, videoId,stream):
         print "Detector Inited"
-        self.video = None;
+        self.video = None
+        self.robotId = robotId
+        self.videoId = videoId
+        self.stream = stream
+        self.video_serial = robotId + "-" + videoId
+        self.worker = threading.Thread(target=self.detectStream)
+        self.worker.isStop = False
 
-    def runVideo(self,vid_source):
-        reactor.callInThread(self.detectStream,vid_source)
+    def runVideo(self):
+        self.worker.start()
 
-    def detectStream(self,stream):
-        output = stream
-        stream = "rtsp://admin:Obodroid@192.168.110.185/streaming/channels/1"
-        self.video = cv2.VideoCapture(stream)
-        print "run VideoCapture"
+    def detectStream(self):
+        self.video = cv2.VideoCapture(self.stream)
         self.video.set(cv2.CAP_PROP_BUFFERSIZE,10)
+        print("run VideoCapture isOpen - {}".format(self.video.isOpened()))
+        
         count = 0
-        print self.video.isOpened()
-        while self.video.isOpened():
+        while self.video.isOpened() and (self.worker.isStop == False):
             res, frame = self.video.read()
             # ws.send("read video - "+str(count))
             # # ws.send("Found object - {}".format(meta.names[i]))
-
+            # TODO Event broadcast. callback
             if not res:
                 print "no res"
                 break
-            cv2.imshow(output, frame)
-            if cv2.waitKey(1) == ord('q'):
-                break        
-            # print res
-
+            
+            ### want to show display ###
+            # cv2.imshow(self.video_serial, frame)
+            # if cv2.waitKey(1) == ord('q'):
+            #     break        
+            print("{} : res - {}, count - {}".format(self.video_serial,res,count))
             count += 1
+
         # //TODO event video finish/stop
-    
+        self.video.release()
+        print("stopStream VideoCapture - {}".format(self.video_serial))
+        ### want to show display then destroy ###
+        # cv2.destroyWindow(self.video_serial)
+
     # //TODO function stop
     def stopStream(self):
-        print "stopStream VideoCapture"
-        self.video.release()
-        cv2.destroyAllWindows()
+        self.worker.isStop = True
     
     
 # if __name__ == "__main__":

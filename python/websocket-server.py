@@ -65,7 +65,7 @@ args = parser.parse_args()
 class DarknetServerProtocol(WebSocketServerProtocol):
     def __init__(self):
         super(DarknetServerProtocol, self).__init__()
-        self.detector = None
+        self.detectors = {}
 
     def onConnect(self, request):
         print("Client connecting: {0}".format(request.peer))
@@ -82,8 +82,17 @@ class DarknetServerProtocol(WebSocketServerProtocol):
             print("START - {}".format(msg['type']))
             self.processVideo(msg)
         elif msg['type'] == "STOP":
-            print("STOP - {}".format(self.detector))
-            self.detector.stopStream()
+            
+            robotId = msg['robotId']
+            videoId = msg['videoId']
+            stream = msg['stream']
+            video_serial = robotId + "-" + videoId
+            print("STOP - {}".format(video_serial))
+
+            if video_serial in self.detectors :
+                self.detectors[video_serial].stopStream()
+                del self.detectors[video_serial]
+
         elif msg['type'] == "ECHO":
             print("ECHO - {}".format(msg['type']))
             self.sendMessage(json.dumps(msg))
@@ -95,9 +104,20 @@ class DarknetServerProtocol(WebSocketServerProtocol):
 
     def processVideo(self, msg):
         print("processVideo - {}".format(json.dumps(msg)))
-        self.detector = darknet.Detector()
+
+        robotId = msg['robotId']
+        videoId = msg['videoId']
+        stream = msg['stream']
+        video_serial = robotId + "-" + videoId
+
+        if video_serial in self.detectors :
+            print("{} - video is already process".format(video_serial))
+            return
         # stream = "rtsp://admin:Obodroid@192.168.110.185/streaming/channels/1"
-        self.detector.runVideo(msg['stream'])
+        
+        detector = darknet.Detector(robotId,videoId,stream)
+        detector.runVideo()
+        self.detectors[video_serial] = detector
 
 def main(reactor):
     log.startLogging(sys.stdout)
