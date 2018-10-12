@@ -14,6 +14,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
+import darknet
 import ptvsd
 
 # Allow other computers to attach to ptvsd at this IP address and port, using the secret
@@ -64,6 +65,7 @@ args = parser.parse_args()
 class DarknetServerProtocol(WebSocketServerProtocol):
     def __init__(self):
         super(DarknetServerProtocol, self).__init__()
+        self.detector = None
 
     def onConnect(self, request):
         print("Client connecting: {0}".format(request.peer))
@@ -78,9 +80,10 @@ class DarknetServerProtocol(WebSocketServerProtocol):
 
         if msg['type'] == "START":
             print("START - {}".format(msg['type']))
-            self.processFrame(msg)
+            self.processVideo(msg)
         elif msg['type'] == "STOP":
-            print("STOP - {}".format(msg['type']))
+            print("STOP - {}".format(self.detector))
+            self.detector.stopStream()
         elif msg['type'] == "ECHO":
             print("ECHO - {}".format(msg['type']))
             self.sendMessage(json.dumps(msg))
@@ -90,8 +93,11 @@ class DarknetServerProtocol(WebSocketServerProtocol):
     def onClose(self, wasClean, code, reason):
         print("WebSocket connection closed: {0}".format(reason))
 
-    def processFrame(self, msg):
-        print("processFrame - {}".format(json.dumps(msg)))
+    def processVideo(self, msg):
+        print("processVideo - {}".format(json.dumps(msg)))
+        self.detector = darknet.Detector()
+        # stream = "rtsp://admin:Obodroid@192.168.110.185/streaming/channels/1"
+        self.detector.runVideo(msg['stream'])
 
 def main(reactor):
     log.startLogging(sys.stdout)

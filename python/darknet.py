@@ -5,14 +5,15 @@ import argparse
 import cv2
 import numpy as np
 from random import randint
+from twisted.internet import task, reactor, threads
+from twisted.internet.defer import Deferred, inlineCallbacks
 
-
-parser = argparse.ArgumentParser()
-parser.add_argument('--configPath', type=str, help="Path to yolo's cfg.",default="cfg/yolov3.cfg")
-parser.add_argument('--weightPath', type=str, help="Path to weight file.", default="../data/yolo/yolov3.weights")
-parser.add_argument('--metaPath', type=str, help="Meta data file path.",default="cfg/coco.data")
-parser.add_argument('--stream', type=str, help="stream uri",default="rtsp://admin:Obodroid@192.168.110.181/streaming/channels/1")
-args = parser.parse_args()    
+# parser = argparse.ArgumentParser()
+# parser.add_argument('--configPath', type=str, help="Path to yolo's cfg.",default="cfg/yolov3.cfg")
+# parser.add_argument('--weightPath', type=str, help="Path to weight file.", default="../data/yolo/yolov3.weights")
+# parser.add_argument('--metaPath', type=str, help="Meta data file path.",default="cfg/coco.data")
+# parser.add_argument('--stream', type=str, help="stream uri",default="rtsp://admin:Obodroid@192.168.110.181/streaming/channels/1")
+# args = parser.parse_args()    
 
 def sample(probs):
     s = sum(probs)
@@ -97,7 +98,7 @@ class iplimage_t(Structure):
 
 
 #lib = CDLL("/home/pjreddie/documents/darknet/libdarknet.so", RTLD_GLOBAL)
-lib = CDLL("./libdarknet.so", RTLD_GLOBAL)
+lib = CDLL("/src/darknet/libdarknet.so", RTLD_GLOBAL)
 lib.network_width.argtypes = [c_void_p]
 lib.network_width.restype = c_int
 lib.network_height.argtypes = [c_void_p]
@@ -221,55 +222,114 @@ def detect(net, meta, image, thresh=.5, hier_thresh=.5, nms=.45):
     free_detections(dets, num)
     return res
 
+# def runOnVideo(net, meta, vid_source, thresh=.8, hier_thresh=.5, nms=.45):
+#     video = cv2.VideoCapture(vid_source)
+#     video.set(cv2.CAP_PROP_BUFFERSIZE,10)
+#     count = 0
 
-
-def runOnVideo(net, meta, vid_source, thresh=.8, hier_thresh=.5, nms=.45):
-    video = cv2.VideoCapture(vid_source)
-    video.set(cv2.CAP_PROP_BUFFERSIZE,10)
-    count = 0
-
-    classes_box_colors = [(0, 0, 255), (0, 255, 0)]  #red for palmup --> stop, green for thumbsup --> go
-    classes_font_colors = [(255, 255, 0), (0, 255, 255)]
-    while video.isOpened():
-        res, frame = video.read()
-        if not res:
-            print "no res"
-            break
-        print("show res - {}".format(res))
-        rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        im, arr = array_to_image(rgb_frame)
+#     classes_box_colors = [(0, 0, 255), (0, 255, 0)]  #red for palmup --> stop, green for thumbsup --> go
+#     classes_font_colors = [(255, 255, 0), (0, 255, 255)]
+#     while video.isOpened():
+#         res, frame = video.read()
+#         if not res:
+#             print "no res"
+#             break
+#         print("show res - {}".format(res))
+#         rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+#         im, arr = array_to_image(rgb_frame)
         
-        num = c_int(0)
-        pnum = pointer(num)
-        predict_image(net, im)
-        dets = get_network_boxes(net, im.w, im.h, thresh, hier_thresh, None, 0, pnum)
-        num = pnum[0]
-        if (nms): do_nms_obj(dets, num, meta.classes, nms);
-        # res = []
-        print("range(num) - {}".format(range(num)))
-        for j in range(num):
-            print("dets[j] - {}".format(dets[j]))
-            for i in range(meta.classes):
-                if dets[j].prob[i] > 0:
-                    b = dets[j].bbox
-                    x1 = int(b.x - b.w / 2.)
-                    y1 = int(b.y - b.h / 2.)
-                    x2 = int(b.x + b.w / 2.)
-                    y2 = int(b.y + b.h / 2.)
-                    cv2.rectangle(frame, (x1, y1), (x2, y2), classes_box_colors[1], 2)
-                    cv2.putText(frame, meta.names[i], (x1, y1 - 20), 1, 1, classes_font_colors[0], 2, cv2.LINE_AA)
-                            
-        cv2.imshow('output', frame)
-        if cv2.waitKey(1) == ord('q'):
-            break        
-        # print res
+#         num = c_int(0)
+#         pnum = pointer(num)
+#         predict_image(net, im)
+#         dets = get_network_boxes(net, im.w, im.h, thresh, hier_thresh, None, 0, pnum)
+#         num = pnum[0]
+#         if (nms): do_nms_obj(dets, num, meta.classes, nms);
+#         # res = []
+
+#         print("range(num) - {}".format(range(num)))
+#         for j in range(num):
+#             print("dets[j] - {}".format(j))
+#             # print("bbox - {}".format(dets[j].bbox))
+#             print("classes - {}".format(dets[j].classes))
+#             # print("mask - {}".format(dets[j].mask))
+#             # print("objectness - {}".format(dets[j].objectness))
+#             # print("sort_class - {}".format(dets[j].sort_class))
+#             dup = 0
+#             for i in range(meta.classes):
+#                 if dets[j].prob[i] > 0:
+#                     ws.send("Found object - {}".format(meta.names[i]))
+#                     dup += 1
+#                     print("class - {}".format(meta.names[i]))
+#                     print("prob - {}".format(dets[j].prob[i]))
+#                     b = dets[j].bbox
+#                     x1 = int(b.x - b.w / 2.)
+#                     y1 = int(b.y - b.h / 2.)
+#                     x2 = int(b.x + b.w / 2.)
+#                     y2 = int(b.y + b.h / 2.)
+#                     cv2.rectangle(frame, (x1, y1), (x2, y2), classes_box_colors[1], 2)
+#                     cv2.putText(frame, meta.names[i], (x1, y1 - 20), 1, 1, classes_font_colors[0], 2, cv2.LINE_AA)
+
+#                 if dup > 1:
+#                     savefile = "dup-"+count+".jpg"
+#                     cv2.imwrite(savefile, face)
+#                     print("dup file - ".format(savefile))
+
+#         cv2.imshow('output', frame)
+#         if cv2.waitKey(1) == ord('q'):
+#             break        
+#         # print res
+
+#         count += 1
+    
+# if __name__ == "__main__":
+#     net = load_net(args.configPath, args.weightPath, 0)
+#     meta = load_meta(args.metaPath)
+#     vid_source = args.stream
+#     runOnVideo(net, meta, vid_source)    
 
 
-        count += 1
+class Detector():
+    def __init__(self):
+        print "Detector Inited"
+        self.video = None;
+
+    def runVideo(self,vid_source):
+        reactor.callInThread(self.detectStream,vid_source)
+
+    def detectStream(self,stream):
+        output = stream
+        stream = "rtsp://admin:Obodroid@192.168.110.185/streaming/channels/1"
+        self.video = cv2.VideoCapture(stream)
+        print "run VideoCapture"
+        self.video.set(cv2.CAP_PROP_BUFFERSIZE,10)
+        count = 0
+        print self.video.isOpened()
+        while self.video.isOpened():
+            res, frame = self.video.read()
+            # ws.send("read video - "+str(count))
+            # # ws.send("Found object - {}".format(meta.names[i]))
+
+            if not res:
+                print "no res"
+                break
+            cv2.imshow(output, frame)
+            if cv2.waitKey(1) == ord('q'):
+                break        
+            # print res
+
+            count += 1
+        # //TODO event video finish/stop
     
-if __name__ == "__main__":
-    net = load_net(args.configPath, args.weightPath, 0)
-    meta = load_meta(args.metaPath)
-    vid_source = args.stream
-    runOnVideo(net, meta, vid_source)    
+    # //TODO function stop
+    def stopStream(self):
+        print "stopStream VideoCapture"
+        self.video.release()
+        cv2.destroyAllWindows()
     
+    
+# if __name__ == "__main__":
+#     # net = load_net(args.configPath, args.weightPath, 0)
+#     # meta = load_meta(args.metaPath)
+#     vid_source = args.stream
+#     print("run main - {}".format(vid_source))
+#     runVideo(vid_source)    
