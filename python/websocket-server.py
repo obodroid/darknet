@@ -118,7 +118,8 @@ class DarknetServerProtocol(WebSocketServerProtocol):
         # stream = "rtsp://admin:Obodroid@192.168.110.185/streaming/channels/1"
         
         detector = darknet.Detector(robotId,videoId,stream,self.detectCallback)
-        detector.runVideo()
+        # detector.runVideo()
+        detector.start()
         self.detectors[video_serial] = detector
     
     def detectCallback(self, msg):

@@ -9,7 +9,7 @@ from multiprocessing import Process
 from random import randint
 from twisted.internet import task, reactor, threads
 from twisted.internet.defer import Deferred, inlineCallbacks
-import os
+import os, signal
 import sys
 fileDir = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(fileDir, ".."))
@@ -104,8 +104,7 @@ class iplimage_t(Structure):
 
 
 #lib = CDLL("/home/pjreddie/documents/darknet/libdarknet.so", RTLD_GLOBAL)
-# lib = CDLL("/src/darknet/libdarknet.so", RTLD_GLOBAL)
-lib = CDLL("./libdarknet.so", RTLD_GLOBAL)
+lib = CDLL("/src/darknet/libdarknet.so", RTLD_GLOBAL)
 lib.network_width.argtypes = [c_void_p]
 lib.network_width.restype = c_int
 lib.network_height.argtypes = [c_void_p]
@@ -301,35 +300,35 @@ def detect(net, meta, image, thresh=.5, hier_thresh=.5, nms=.45):
 #     runOnVideo(net, meta, vid_source)    
 
 
-class Detector():
+class Detector(Process):
     def __init__(self, robotId, videoId, stream, callback):
         print "Detector Inited"
+        
         self.video = None
         self.robotId = robotId
         self.videoId = videoId
         self.stream = stream
         self.video_serial = robotId + "-" + videoId
         # self.worker = threading.Thread(target=self.detectStream)
-        self.worker = Process(target=self.detectStream)
-        self.worker.isStop = False
+        # self.worker = Process(target=self.detectStream)
+        # self.worker.isStop = False
         self.callback = callback
+        Process.__init__(self)
 
-    def runVideo(self):
-        self.worker.start()
+    def run(self):
+        print('video {} >> detectStream pid : {}'.format(self.video_serial, self.pid))
+        self.detectStream()
 
     def detectStream(self):
-        print 'detectStream process id:', os.getpid()
         net = load_net(configPath, weightPath, 0)
         meta = load_meta(metaPath)
         self.video = cv2.VideoCapture(self.stream)
         self.video.set(cv2.CAP_PROP_BUFFERSIZE,10)
         print("run VideoCapture isOpen - {}".format(self.video.isOpened()))
         count = 0
-        
-        while self.video.isOpened() and (self.worker.isStop == False):
+        # while self.video.isOpened() and (self.worker.isStop == False):
+        while self.video.isOpened():
             res, frame = self.video.read()
-            # ws.send("read video - "+str(count))
-            # # ws.send("Found object - {}".format(meta.names[i]))
             # TODO Event broadcast. callback
             if not res:
                 print "no res"
@@ -342,15 +341,10 @@ class Detector():
             count += 1
 
         # # //TODO event video finish/stop
-        # self.video.release()
-        # print("stopStream VideoCapture - {}".format(self.video_serial))
-        # if self.worker.isAlive():
-        #     try:
-        #         self.worker._Thread__stop()
-        #     except:
-        #         print(self.worker.getName() + ' could not be terminated')
-        #     ### want to show display then destroy ###
-        #     # cv2.destroyWindow(self.video_serial)
+        print("stopStream VideoCapture - {}".format(self.video_serial))
+        
+        self.video.release()
+        cv2.destroyWindow(self.video_serial)
     
     def processFrame(self,frame,keyframe,net,meta):
         classes_box_colors = [(0, 0, 255), (0, 255, 0)]  #red for palmup --> stop, green for thumbsup --> go
@@ -384,14 +378,6 @@ class Detector():
 
     # //TODO function stop
     def stopStream(self):
-        # self.worker.isStop = True
-        self.worker.terminated()
-        print("stopStream self.worker.isStop - {} >> {}".format(self.video_serial,self.worker.isStop))
-    
-    
-# if __name__ == "__main__":
-#     # net = load_net(args.configPath, args.weightPath, 0)
-#     # meta = load_meta(args.metaPath)
-#     vid_source = args.stream
-#     print("run main - {}".format(vid_source))
-#     runVideo(vid_source)    
+        print("stopStream self.worker.isStop - {}".format(self.video_serial))
+        self.terminate()
+        os.kill(int(self.pid), signal.SIGKILL)
