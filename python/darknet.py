@@ -11,6 +11,7 @@ from twisted.internet import task, reactor, threads
 from twisted.internet.defer import Deferred, inlineCallbacks
 import os, signal
 import sys
+import time
 fileDir = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(fileDir, ".."))
 
@@ -299,45 +300,97 @@ def detect(net, meta, image, thresh=.5, hier_thresh=.5, nms=.45):
 #     vid_source = args.stream
 #     runOnVideo(net, meta, vid_source)    
 
+bufferSize = 12
 
 class Detector(Process):
     def __init__(self, robotId, videoId, stream, callback):
         print "Detector Inited"
-        
+        # self.net = load_net(configPath, weightPath, 0)
+        # self.meta = load_meta(metaPath)
         self.video = None
         self.robotId = robotId
         self.videoId = videoId
         self.stream = stream
         self.video_serial = robotId + "-" + videoId
-        # self.worker = threading.Thread(target=self.detectStream)
-        # self.worker = Process(target=self.detectStream)
-        # self.worker.isStop = False
+        # self.fetchWorker = threading.Thread(target=self.fetchStream)
+        # self.detectWorker = threading.Thread(target=self.detectStream)
+        # self.displayWorker = threading.Thread(target=self.displayStream)
+        self.buf = [None] * bufferSize
+        self.bufId = 0
         self.callback = callback
         Process.__init__(self)
 
     def run(self):
-        print('video {} >> detectStream pid : {}'.format(self.video_serial, self.pid))
-        self.detectStream()
+        print('video {} >> processStream pid : {}'.format(self.video_serial, self.pid))
+        self.processStream()
 
-    def detectStream(self):
+    def fetchStream(self):
+        res, frame = self.video.read()
+        # print "count bf sleep - ",count
+        
+        if not res:
+            print "Cannot retrive video."
+
+        print("self.bufId - {}".format(self.bufId))
+        self.buf[self.bufId] = frame
+    
+    def detectStream(self,keyframe,net,meta):
+        print("detect stream at keyframe : {}".format(keyframe))
+        frame = self.buf[(self.bufId+10)%bufferSize]
+        # time.sleep(1)
+        frame = self.nnDetect(frame,keyframe,net,meta)
+        self.buf[(self.bufId+10)%bufferSize] = frame
+    
+    def displayStream(self):
+        frame = self.buf[(self.bufId+1)%bufferSize]
+        return frame
+
+    def processStream(self):
         net = load_net(configPath, weightPath, 0)
         meta = load_meta(metaPath)
         self.video = cv2.VideoCapture(self.stream)
-        self.video.set(cv2.CAP_PROP_BUFFERSIZE,10)
-        print("run VideoCapture isOpen - {}".format(self.video.isOpened()))
+        self.video.set(cv2.CAP_PROP_BUFFERSIZE,100)
+        fps = self.video.get(cv2.CAP_PROP_FPS)
+        print("run VideoCapture isOpen - {}, fps - {}".format(self.video.isOpened(),fps))
         count = 0
+        self.fetchStream()
+        for i in range(1,bufferSize):
+            self.buf[i] = self.buf[0].copy()
+       
+
         # while self.video.isOpened() and (self.worker.isStop == False):
         while self.video.isOpened():
-            res, frame = self.video.read()
-            # TODO Event broadcast. callback
-            if not res:
-                print "no res"
-                break
-            frame = self.processFrame(frame, count, net, meta)
-            ### want to show display ###
+
+            self.bufId = (self.bufId + 1) %bufferSize;
+            fetchWorker = threading.Thread(target=self.fetchStream)
+            fetchWorker.start()
+            detectWorker = threading.Thread(target=self.detectStream,args=([count,net,meta]))
+            detectWorker.start()
+
+            frame = self.displayStream()
+            # frame = self.buf[(bufIndex+1)%bufferSize]
             cv2.imshow(self.video_serial, frame)
             if cv2.waitKey(1) == ord('q'):
                 break
+
+            fetchWorker.join()
+            detectWorker.join()
+
+            # res, frame = self.video.read()
+            # # print "count bf sleep - ",count
+
+            # if not res:
+            #     print "Cannot retrive video."
+            #     break
+            
+            # time.sleep(1)
+            # print "count af sleep - ",count
+            # # frame = self.processStream(frame, count, net, meta)
+            # ### want to show display ###
+            # cv2.imshow(self.video_serial, frame)
+            # if cv2.waitKey(1) == ord('q'):
+            #     break
+
             count += 1
 
         # # //TODO event video finish/stop
@@ -346,19 +399,19 @@ class Detector(Process):
         self.video.release()
         cv2.destroyWindow(self.video_serial)
     
-    def processFrame(self,frame,keyframe,net,meta):
+    def nnDetect(self,frame,keyframe,net,meta):
         classes_box_colors = [(0, 0, 255), (0, 255, 0)]  #red for palmup --> stop, green for thumbsup --> go
         classes_font_colors = [(255, 255, 0), (0, 255, 255)]
 
         rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         im, arr = array_to_image(rgb_frame)
-        
+
         num = c_int(0)
         pnum = pointer(num)
         predict_image(net, im)
         dets = get_network_boxes(net, im.w, im.h, thresh, hier_thresh, None, 0, pnum)
         num = pnum[0]
-        if (nms): do_nms_obj(dets, num, meta.classes, nms);
+        if (nms): do_nms_obj(dets, num, meta.classes, nms)
         # res = []
 
         for j in range(num):
