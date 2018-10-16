@@ -5,6 +5,7 @@ import argparse
 import cv2
 import numpy as np
 import threading
+from multiprocessing import Process
 from random import randint
 from twisted.internet import task, reactor, threads
 from twisted.internet.defer import Deferred, inlineCallbacks
@@ -103,7 +104,8 @@ class iplimage_t(Structure):
 
 
 #lib = CDLL("/home/pjreddie/documents/darknet/libdarknet.so", RTLD_GLOBAL)
-lib = CDLL("/src/darknet/libdarknet.so", RTLD_GLOBAL)
+# lib = CDLL("/src/darknet/libdarknet.so", RTLD_GLOBAL)
+lib = CDLL("./libdarknet.so", RTLD_GLOBAL)
 lib.network_width.argtypes = [c_void_p]
 lib.network_width.restype = c_int
 lib.network_height.argtypes = [c_void_p]
@@ -307,7 +309,8 @@ class Detector():
         self.videoId = videoId
         self.stream = stream
         self.video_serial = robotId + "-" + videoId
-        self.worker = threading.Thread(target=self.detectStream)
+        # self.worker = threading.Thread(target=self.detectStream)
+        self.worker = Process(target=self.detectStream)
         self.worker.isStop = False
         self.callback = callback
 
@@ -315,6 +318,7 @@ class Detector():
         self.worker.start()
 
     def detectStream(self):
+        print 'detectStream process id:', os.getpid()
         net = load_net(configPath, weightPath, 0)
         meta = load_meta(metaPath)
         self.video = cv2.VideoCapture(self.stream)
@@ -337,16 +341,16 @@ class Detector():
                 break
             count += 1
 
-        # //TODO event video finish/stop
-        self.video.release()
-        print("stopStream VideoCapture - {}".format(self.video_serial))
-        if self.worker.isAlive():
-            try:
-                self.worker._Thread__stop()
-            except:
-                print(self.worker.getName() + ' could not be terminated')
-            ### want to show display then destroy ###
-            # cv2.destroyWindow(self.video_serial)
+        # # //TODO event video finish/stop
+        # self.video.release()
+        # print("stopStream VideoCapture - {}".format(self.video_serial))
+        # if self.worker.isAlive():
+        #     try:
+        #         self.worker._Thread__stop()
+        #     except:
+        #         print(self.worker.getName() + ' could not be terminated')
+        #     ### want to show display then destroy ###
+        #     # cv2.destroyWindow(self.video_serial)
     
     def processFrame(self,frame,keyframe,net,meta):
         classes_box_colors = [(0, 0, 255), (0, 255, 0)]  #red for palmup --> stop, green for thumbsup --> go
@@ -380,7 +384,8 @@ class Detector():
 
     # //TODO function stop
     def stopStream(self):
-        self.worker.isStop = True
+        # self.worker.isStop = True
+        self.worker.terminated()
         print("stopStream self.worker.isStop - {} >> {}".format(self.video_serial,self.worker.isStop))
     
     
