@@ -300,7 +300,7 @@ def detect(net, meta, image, thresh=.5, hier_thresh=.5, nms=.45):
 #     vid_source = args.stream
 #     runOnVideo(net, meta, vid_source)    
 
-bufferSize = 100
+bufferSize = 10
 
 class Detector(Process):
     def __init__(self, robotId, videoId, stream, callback):
