@@ -300,7 +300,7 @@ def detect(net, meta, image, thresh=.5, hier_thresh=.5, nms=.45):
 #     vid_source = args.stream
 #     runOnVideo(net, meta, vid_source)    
 
-bufferSize = 12
+bufferSize = 100
 
 class Detector(Process):
     def __init__(self, robotId, videoId, stream, callback):
@@ -317,6 +317,8 @@ class Detector(Process):
         # self.displayWorker = threading.Thread(target=self.displayStream)
         self.buf = [None] * bufferSize
         self.bufId = 0
+        self.detectBuf = [None] * bufferSize
+        self.detectBufId = 0
         self.callback = callback
         Process.__init__(self)
 
@@ -325,73 +327,121 @@ class Detector(Process):
         self.processStream()
 
     def fetchStream(self):
-        res, frame = self.video.read()
-        # print "count bf sleep - ",count
-        
-        if not res:
-            print "Cannot retrive video."
+        while self.video.isOpened():
+            self.bufId = (self.bufId + 1) % bufferSize
+            print self.video_serial,' - 2222222'
+            res, frame = self.video.read()
+            # print "count bf sleep - ",count
+            
+            if not res:
+                print "Cannot retrive video."
 
-        print("self.bufId - {}".format(self.bufId))
-        self.buf[self.bufId] = frame
+            self.buf[self.bufId] = frame
+
     
-    def detectStream(self,keyframe,net,meta):
-        print("detect stream at keyframe : {}".format(keyframe))
-        frame = self.buf[(self.bufId+10)%bufferSize]
-        # time.sleep(1)
-        frame = self.nnDetect(frame,keyframe,net,meta)
-        self.buf[(self.bufId+10)%bufferSize] = frame
-    
+    def detectStream(self,net,meta):
+        print self.video_serial,' - detectStream'
+        #frame = self.buf[(self.bufId+2)%bufferSize]
+        #frame = self.nnDetect(frame,keyframe,net,meta)
+        #self.buf[(self.bufId+2)%bufferSize] = frame
+        while True:
+            self.detectBufId = (self.detectBufId + 1) % bufferSize
+            keyframe = self.bufId
+            frame = self.buf[keyframe].copy()
+            frame = self.nnDetect(frame,keyframe,net,meta)
+            self.detectBuf[self.detectBufId] = frame
+
     def displayStream(self):
-        frame = self.buf[(self.bufId+1)%bufferSize]
+        frame = self.buf[self.bufId].copy()
+        return frame
+
+    def displayDetectStream(self):
+
+        frame = self.detectBuf[self.detectBufId].copy() if self.detectBuf[self.detectBufId] is not None else None
         return frame
 
     def processStream(self):
         net = load_net(configPath, weightPath, 0)
         meta = load_meta(metaPath)
         self.video = cv2.VideoCapture(self.stream)
-        self.video.set(cv2.CAP_PROP_BUFFERSIZE,100)
+        self.video.set(cv2.CAP_PROP_BUFFERSIZE,1)
         fps = self.video.get(cv2.CAP_PROP_FPS)
         print("run VideoCapture isOpen - {}, fps - {}".format(self.video.isOpened(),fps))
         count = 0
-        self.fetchStream()
+        
+        res, frame = self.video.read()
+            # print "count bf sleep - ",count
+            
+        if not res:
+            print "Cannot retrive video."
+
+        self.buf[self.bufId] = frame
+
         for i in range(1,bufferSize):
             self.buf[i] = self.buf[0].copy()
        
+        fetchWorker = threading.Thread(target=self.fetchStream)
+        fetchWorker.start()
 
-        # while self.video.isOpened() and (self.worker.isStop == False):
-        while self.video.isOpened():
+        detectWorker = threading.Thread(target=self.detectStream,args=([net,meta]))
+        detectWorker.start()
 
-            self.bufId = (self.bufId + 1) %bufferSize;
-            fetchWorker = threading.Thread(target=self.fetchStream)
-            fetchWorker.start()
-            detectWorker = threading.Thread(target=self.detectStream,args=([count,net,meta]))
-            detectWorker.start()
-
+        while True:
+            print self.video_serial,' - 111111'
             frame = self.displayStream()
-            # frame = self.buf[(bufIndex+1)%bufferSize]
+            print self.video_serial,' - frame'
             cv2.imshow(self.video_serial, frame)
             if cv2.waitKey(1) == ord('q'):
                 break
-
-            fetchWorker.join()
-            detectWorker.join()
-
-            # res, frame = self.video.read()
-            # # print "count bf sleep - ",count
-
-            # if not res:
-            #     print "Cannot retrive video."
-            #     break
             
-            # time.sleep(1)
-            # print "count af sleep - ",count
-            # # frame = self.processStream(frame, count, net, meta)
-            # ### want to show display ###
-            # cv2.imshow(self.video_serial, frame)
-            # if cv2.waitKey(1) == ord('q'):
-            #     break
+            detectFrame = self.displayDetectStream()
+            if detectFrame is not None:
+                dfTitle = self.video_serial+' - detectFrame'
+                print dfTitle
+                cv2.imshow(dfTitle, detectFrame)
+                if cv2.waitKey(1) == ord('q'):
+                    break
 
+            #time.sleep(3)
             count += 1
+
+        # while self.video.isOpened() and (self.worker.isStop == False):
+        # while self.video.isOpened():
+        #     print self.video_serial,' - 111111'
+        #     self.bufId = (self.bufId + 1) % bufferSize
+        #     print self.video_serial,' - bufId - ',self.bufId
+        #     fetchWorker = threading.Thread(target=self.fetchStream)
+        #     fetchWorker.start()
+        #     #detectWorker = threading.Thread(target=self.detectStream,args=([count,net,meta]))
+        #     #detectWorker.start()
+        #     fetchWorker = threading.Thread(target=self.fetchStream)
+        #     fetchWorker.start()
+
+        #     # frame = self.displayStream()
+        #     # print self.video_serial,' - 444444'
+        #     # cv2.imshow(self.video_serial, frame)
+        #     # if cv2.waitKey(1) == ord('q'):
+        #     #     break
+
+        #     fetchWorker.join()
+        #     #detectWorker.join()
+
+        #     # res, frame = self.video.read()
+        #     # # print "count bf sleep - ",count
+
+        #     # if not res:
+        #     #     print "Cannot retrive video."
+        #     #     break
+            
+        #     # time.sleep(1)
+        #     # print "count af sleep - ",count
+        #     # # frame = self.processStream(frame, count, net, meta)
+        #     # ### want to show display ###
+        #     # cv2.imshow(self.video_serial, frame)
+        #     # if cv2.waitKey(1) == ord('q'):
+        #     #     break
+
+        #    count += 1
 
         # # //TODO event video finish/stop
         print("stopStream VideoCapture - {}".format(self.video_serial))
@@ -400,6 +450,7 @@ class Detector(Process):
         cv2.destroyWindow(self.video_serial)
     
     def nnDetect(self,frame,keyframe,net,meta):
+        print("nnDetect {} at keyframe {}".format(self.video_serial,keyframe))    
         classes_box_colors = [(0, 0, 255), (0, 255, 0)]  #red for palmup --> stop, green for thumbsup --> go
         classes_font_colors = [(255, 255, 0), (0, 255, 255)]
 
