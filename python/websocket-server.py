@@ -50,6 +50,8 @@ import base64
 import time
 from datetime import datetime
 import ssl
+from multiprocessing import Manager
+import threading
 
 # For TLS connections
 tls_crt = os.path.join(fileDir, 'tls', 'server.crt')
@@ -68,6 +70,7 @@ class DarknetServerProtocol(WebSocketServerProtocol):
     def __init__(self):
         super(DarknetServerProtocol, self).__init__()
         self.detectors = {}
+        #self.updateWorker = threading.Thread(target=self.update)
 
     def onConnect(self, request):
         print("Client connecting: {0}".format(request.peer))
@@ -79,20 +82,22 @@ class DarknetServerProtocol(WebSocketServerProtocol):
         raw = payload.decode('utf8')
         print("server raw msg - {}".format(raw))
         msg = json.loads(raw)
+        robotId = msg['robotId']
+        videoId = msg['videoId']
+        video_serial = robotId + "-" + videoId
 
         if msg['type'] == "START":
             print("START - {}".format(msg['type']))
             self.processVideo(msg)
+        elif msg['type'] == "UPDATE":
+            print("UPDATE - {}".format(msg['type']))
+            # self.detectors[video_serial].updateTarget(msg['targetObjects'])
         elif msg['type'] == "STOP":
-            
-            robotId = msg['robotId']
-            videoId = msg['videoId']
-            stream = msg['stream']
-            video_serial = robotId + "-" + videoId
-            print("STOP - {}".format(video_serial))
 
+            print("STOP - {}".format(video_serial))
             if video_serial in self.detectors :
                 self.detectors[video_serial].stopStream()
+                self.detectors[video_serial].join()
                 del self.detectors[video_serial]
 
         elif msg['type'] == "ECHO":
@@ -115,16 +120,32 @@ class DarknetServerProtocol(WebSocketServerProtocol):
         if video_serial in self.detectors :
             print("{} - video is already process".format(video_serial))
             return
-        # stream = "rtsp://admin:Obodroid@192.168.110.185/streaming/channels/1"
-        
+            
+        #sc = darknet.SocketClient(robotId,videoId,stream,self.detectCallback)
+        #sc.detect()
+        #self.detectors[video_serial] = sc
         detector = darknet.Detector(robotId,videoId,stream,self.detectCallback)
-        # detector.runVideo()
         detector.start()
         self.detectors[video_serial] = detector
+        #self.updateWorker.start()
+        
     
     def detectCallback(self, msg):
-        print("callback msg - {}".format(msg))
-        
+        # msg = {
+        #     "type": "DETECTED",
+        #     "keyframe": "1123"
+        # }
+        print("detectCallback msg - {}".format(msg))
+        self.sendMessage(json.dumps(msg))
+        #self.msgQueue.append(msg)
+    
+    def update(self):
+        while True:
+            if self.msgQueue :
+                msg = self.msgQueue.pop()
+                # print("update msg - {}".format(msg))
+                self.sendMessage(json.dumps(msg))
+            
 def main(reactor):
     log.startLogging(sys.stdout)
     factory = WebSocketServerFactory()

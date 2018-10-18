@@ -11,6 +11,7 @@ from twisted.internet import task, reactor, threads
 from twisted.internet.defer import Deferred, inlineCallbacks
 import os, signal
 import sys
+import json
 import time
 import base64
 fileDir = os.path.dirname(os.path.realpath(__file__))
@@ -301,11 +302,14 @@ def detect(net, meta, image, thresh=.5, hier_thresh=.5, nms=.45):
 #     vid_source = args.stream
 #     runOnVideo(net, meta, vid_source)    
 
-bufferSize = 10
+bufferSize = 3
 
-class Detector(Process):
+class Detector(threading.Thread):
     def __init__(self, robotId, videoId, stream, callback):
         # TODO handle irregular case, end of stream
+        net = load_net(configPath, weightPath, 0)
+        meta = load_meta(metaPath)
+        self.isStop = False
         self.video = None
         self.robotId = robotId
         self.videoId = videoId
@@ -318,17 +322,21 @@ class Detector(Process):
         self.callback = callback
         self.isDisplay = True # TODO should receive args to display or not
         self.count = 0
-        Process.__init__(self)
+        self.targetObjects = "person"
+        self.fetchWorker = threading.Thread(target=self.fetchStream)
+        self.fetchWorker.isStop = False
+        self.detectWorker = threading.Thread(target=self.detectStream,args=([net,meta]))
+        self.detectWorker.isStop = False
+        threading.Thread.__init__(self)
         print "Detector Inited - ",self.video_serial 
 
     def run(self):
-        print('video {} >> processStream pid : {}'.format(self.video_serial, self.pid))
+        #print('video {} >> processStream pid : {}'.format(self.video_serial, self.pid))
         self.processStream()
 
     def fetchStream(self):
-        while self.video.isOpened():
+        while self.video.isOpened() and self.fetchWorker.isStop is False:
             self.bufId = (self.bufId + 1) % bufferSize
-            print self.video_serial,' - 2222222'
             res, frame = self.video.read()
 
             if not res:
@@ -338,11 +346,8 @@ class Detector(Process):
 
     
     def detectStream(self,net,meta):
-        print self.video_serial,' - detectStream'
-        #frame = self.buf[(self.bufId+2)%bufferSize]
-        #frame = self.nnDetect(frame,keyframe,net,meta)
-        #self.buf[(self.bufId+2)%bufferSize] = frame
-        while True:
+        print('{} - detectStream, targetObjects - {}'.format(self.video_serial,self.targetObjects))
+        while self.detectWorker.isStop is False:
             self.detectBufId = (self.detectBufId + 1) % bufferSize
             frame = self.buf[self.bufId].copy()
             keyframe = self.count
@@ -354,13 +359,11 @@ class Detector(Process):
         return frame
 
     def displayDetectStream(self):
-
-        frame = self.detectBuf[self.detectBufId].copy() if self.detectBuf[self.detectBufId] is not None else None
+        keyframe = self.detectBufId
+        frame = self.detectBuf[keyframe].copy() if self.detectBuf[keyframe] is not None else None
         return frame
 
     def processStream(self):
-        net = load_net(configPath, weightPath, 0)
-        meta = load_meta(metaPath)
         self.video = cv2.VideoCapture(self.stream)
         self.video.set(cv2.CAP_PROP_BUFFERSIZE,1)
         fps = self.video.get(cv2.CAP_PROP_FPS)
@@ -377,26 +380,27 @@ class Detector(Process):
         for i in range(1,bufferSize):
             self.buf[i] = self.buf[0].copy()
        
-        fetchWorker = threading.Thread(target=self.fetchStream)
-        fetchWorker.start()
+        #fetchWorker = threading.Thread(target=self.fetchStream)
+        self.fetchWorker.start()
 
-        detectWorker = threading.Thread(target=self.detectStream,args=([net,meta]))
-        detectWorker.start()
+        #detectWorker = threading.Thread(target=self.detectStream,args=([net,meta]))
+        self.detectWorker.start()
 
-        while True:
-            frame = self.displayStream()
-            print self.video_serial,' - raw frame'
-            cv2.imshow(self.video_serial, frame)
-            if cv2.waitKey(1) == ord('q'):
-                break
+        while self.isStop is False:
+            # print("main thread self.targetObjects - {}".format(self.targetObjects))
+            # frame = self.displayStream()
+            # print self.video_serial,' - raw frame'
+            # cv2.imshow(self.video_serial, frame)
+            # if cv2.waitKey(1) == ord('q'):
+            #     break
             
-            detectFrame = self.displayDetectStream()
-            if detectFrame is not None:
-                dfTitle = self.video_serial+' - detect frame'
-                print dfTitle
-                cv2.imshow(dfTitle, detectFrame)
-                if cv2.waitKey(1) == ord('q'):
-                    break
+            # detectFrame = self.displayDetectStream()
+            # if detectFrame is not None:
+            #     dfTitle = self.video_serial+' - detect frame'
+            #     #print dfTitle
+            #     cv2.imshow(dfTitle, detectFrame)
+            #     if cv2.waitKey(1) == ord('q'):
+            #         break
 
             #time.sleep(3)
             self.count += 1
@@ -404,8 +408,8 @@ class Detector(Process):
         # # //TODO event video finish/stop
         print("stopStream VideoCapture - {}".format(self.video_serial))
         
-        self.video.release()
-        cv2.destroyWindow(self.video_serial)
+        #self.video.release()
+        #cv2.destroyWindow(self.video_serial+' - detect frame')
     
     def nnDetect(self,frame,keyframe,net,meta):
         print("nnDetect {} at keyframe {}".format(self.video_serial,keyframe))    
@@ -432,39 +436,77 @@ class Detector(Process):
                     y1 = int(b.y - b.h / 2.)
                     x2 = int(b.x + b.w / 2.)
                     y2 = int(b.y + b.h / 2.)
+                    
                     cv2.rectangle(frame, (x1, y1), (x2, y2), classes_box_colors[1], 2)
                     cv2.putText(frame, meta.names[i], (x1, y1 - 20), 1, 1, classes_font_colors[0], 2, cv2.LINE_AA)
+
                     cropImage = frame[y1:y2, x1:x2] # frame[y:y+h, x:x+w]
-                    retval, jpgImage = cv2.imencode('.jpg', cropImage)
-                    base64Image = base64.b64encode(jpgImage)
-                    detected = "{}  at keyframe {}: object - {},prob - {},base64Image - {}".format(self.video_serial,keyframe,meta.names[i],dets[j].prob[i],base64Image)    
-                    # TODO 
-                    # - JSON message to send in callback
-                    # - base64 image
-                    # - keyframe.toString().padStart(8, 0)
-                    # - targetObject and const wrapType = detectedObject.type.replace(' ', '_');
-                    # - Prob threshold or detectedObject.percentage.slice(0, -1) > AI.default.threshold
+                    # print "Crop image shape {}".format(cropImage.shape)
+                    height, width, channels = cropImage.shape
+                    if width > 0 and height > 0:
+                        retval, jpgImage = cv2.imencode('.jpg', cropImage)
+                        base64Image = base64.b64encode(jpgImage)
+                        # msg = "{}  at keyframe {}: object - {},prob - {},base64Image - {}".format(self.video_serial,keyframe,meta.names[i],dets[j].prob[i],base64Image)
 
-                    msg = {
-                        "type": "DETECTED",
-                        "keyframe": keyframe,
-                        "bbox": {
-                            "x":x1,
-                            "y":y1,
-                            "w":b.w,
-                            "h":b.h,
-                        },
-                        "objectType": meta.names[i],
-                        "prob":dets[j].prob[i],
-                        "dataURL":base64Image
-                    }
-                    self.callback(msg)
+                        # TODO 
+                        # - JSON message to send in callback
+                        # - base64 image
+                        # - keyframe.toString().padStart(8, 0)
+                        # - targetObject and const wrapType = detectedObject.type.replace(' ', '_');
+                        # - Prob threshold or detectedObject.percentage.slice(0, -1) > AI.default.threshold
 
-
+                        msg = {
+                            "type": "DETECTED",
+                            "robotId":self.robotId,
+                            "videoId":self.videoId,
+                            "keyframe": keyframe,
+                            "bbox": {
+                                "x":x1,
+                                "y":y1,
+                                "w":b.w,
+                                "h":b.h,
+                            },
+                            "objectType": meta.names[i],
+                            "prob":dets[j].prob[i],
+                            "dataURL":base64Image
+                            
+                        }
+                    
+                        #self.callback(msg)
         return frame
 
     # //TODO function stop
     def stopStream(self):
-        print("stopStream self.worker.isStop - {}".format(self.video_serial))
-        self.terminate()
-        os.kill(int(self.pid), signal.SIGKILL)
+        self.fetchWorker.isStop = True
+        self.detectWorker.isStop = True
+        self.isStop = True
+        print("stopStream self.isStop : {} , {} ".format(self.video_serial,self.isStop))
+        #self.stop()
+        #os.kill(int(self.pid), signal.SIGKILL)
+
+    def updateTarget(self,targetObjects):
+        print("new targetObjects - {}".format(targetObjects))
+        self.targetObjects = targetObjects
+
+class SocketClient():
+    def __init__(self, robotId, videoId, stream, callback):
+        # TODO handle irregular case, end of stream
+        # self.video = None
+        # # self.robotId = robotId
+        # # self.videoId = videoId
+        # # self.stream = stream
+        self.video_serial = robotId + "-" + videoId
+        self.callback = callback
+        print "SocketClient Inited - ",self.video_serial 
+        self.detector = Detector(robotId,videoId,stream,self.runCallback)
+
+    def detect(self):
+        self.detector.start()
+    
+    def runCallback(self,msg):
+        self.callback(msg)
+    
+    def stopStream(self):
+        print("Wrapper stopStream - {}".format(self.video_serial))
+        self.detector.stopStream()
+
