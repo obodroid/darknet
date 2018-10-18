@@ -412,7 +412,7 @@ class Detector(threading.Thread):
         #cv2.destroyWindow(self.video_serial+' - detect frame')
     
     def nnDetect(self,frame,keyframe,net,meta):
-        print("nnDetect {} at keyframe {}".format(self.video_serial,keyframe))    
+        #print("nnDetect {} at keyframe {}".format(self.video_serial,keyframe))    
         classes_box_colors = [(0, 0, 255), (0, 255, 0)]  #red for palmup --> stop, green for thumbsup --> go
         classes_font_colors = [(255, 255, 0), (0, 255, 255)]
 
@@ -472,7 +472,7 @@ class Detector(threading.Thread):
                             
                         }
                     
-                        #self.callback(msg)
+                        self.callback(msg)
         return frame
 
     # //TODO function stop
