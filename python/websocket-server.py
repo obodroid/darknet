@@ -70,7 +70,6 @@ class DarknetServerProtocol(WebSocketServerProtocol):
     def __init__(self):
         super(DarknetServerProtocol, self).__init__()
         self.detectors = {}
-        #self.updateWorker = threading.Thread(target=self.update)
 
     def onConnect(self, request):
         print("Client connecting: {0}".format(request.peer))
@@ -91,9 +90,9 @@ class DarknetServerProtocol(WebSocketServerProtocol):
             self.processVideo(msg)
         elif msg['type'] == "UPDATE":
             print("UPDATE - {}".format(msg['type']))
-            # self.detectors[video_serial].updateTarget(msg['targetObjects'])
+            if video_serial in self.detectors :
+                self.detectors[video_serial].updateTarget(msg['targetObjects'])
         elif msg['type'] == "STOP":
-
             print("STOP - {}".format(video_serial))
             if video_serial in self.detectors :
                 self.detectors[video_serial].stopStream()
@@ -115,29 +114,20 @@ class DarknetServerProtocol(WebSocketServerProtocol):
         robotId = msg['robotId']
         videoId = msg['videoId']
         stream = msg['stream']
+        threshold = msg['threshold']
         video_serial = robotId + "-" + videoId
 
         if video_serial in self.detectors :
             print("{} - video is already process".format(video_serial))
             return
-            
-        #sc = darknet.SocketClient(robotId,videoId,stream,self.detectCallback)
-        #sc.detect()
-        #self.detectors[video_serial] = sc
-        detector = darknet.Detector(robotId,videoId,stream,self.detectCallback)
+
+        detector = darknet.Detector(robotId,videoId,stream,threshold,self.detectCallback)
         detector.start()
         self.detectors[video_serial] = detector
-        #self.updateWorker.start()
         
     
     def detectCallback(self, msg):
-        # msg = {
-        #     "type": "DETECTED",
-        #     "keyframe": "1123"
-        # }
-        print("detectCallback msg - {}".format(msg))
         self.sendMessage(json.dumps(msg))
-        #self.msgQueue.append(msg)
     
     def update(self):
         while True:

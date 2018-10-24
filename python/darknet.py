@@ -305,12 +305,13 @@ def detect(net, meta, image, thresh=.5, hier_thresh=.5, nms=.45):
 bufferSize = 3
 
 class Detector(threading.Thread):
-    def __init__(self, robotId, videoId, stream, callback):
+    def __init__(self, robotId, videoId, stream, threshold, callback):
         # TODO handle irregular case, end of stream
         net = load_net(configPath, weightPath, 0)
         meta = load_meta(metaPath)
         self.isStop = False
         self.video = None
+        self.threshold = threshold
         self.robotId = robotId
         self.videoId = videoId
         self.stream = stream
@@ -322,7 +323,7 @@ class Detector(threading.Thread):
         self.callback = callback
         self.isDisplay = True # TODO should receive args to display or not
         self.count = 0
-        self.targetObjects = "person"
+        self.targetObjects = []
         self.fetchWorker = threading.Thread(target=self.fetchStream)
         self.fetchWorker.isStop = False
         self.detectWorker = threading.Thread(target=self.detectStream,args=([net,meta]))
@@ -344,10 +345,12 @@ class Detector(threading.Thread):
 
             self.buf[self.bufId] = frame
 
+        if not self.video.isOpened():
+            self.videoStop()
     
     def detectStream(self,net,meta):
-        print('{} - detectStream, targetObjects - {}'.format(self.video_serial,self.targetObjects))
         while self.detectWorker.isStop is False:
+            #print('{} - detectStream, targetObjects - {}'.format(self.video_serial,self.targetObjects))
             self.detectBufId = (self.detectBufId + 1) % bufferSize
             frame = self.buf[self.bufId].copy()
             keyframe = self.count
@@ -407,12 +410,11 @@ class Detector(threading.Thread):
 
         # # //TODO event video finish/stop
         print("stopStream VideoCapture - {}".format(self.video_serial))
-        
         #self.video.release()
         #cv2.destroyWindow(self.video_serial+' - detect frame')
     
     def nnDetect(self,frame,keyframe,net,meta):
-        #print("nnDetect {} at keyframe {}".format(self.video_serial,keyframe))    
+        print("nnDetect {} at keyframe {}, targetObjects {}, threshold {}".format(self.video_serial,keyframe,self.targetObjects,self.threshold))    
         classes_box_colors = [(0, 0, 255), (0, 255, 0)]  #red for palmup --> stop, green for thumbsup --> go
         classes_font_colors = [(255, 255, 0), (0, 255, 255)]
 
@@ -422,14 +424,14 @@ class Detector(threading.Thread):
         num = c_int(0)
         pnum = pointer(num)
         predict_image(net, im)
-        dets = get_network_boxes(net, im.w, im.h, thresh, hier_thresh, None, 0, pnum)
+        dets = get_network_boxes(net, im.w, im.h, self.threshold, hier_thresh, None, 0, pnum)
         num = pnum[0]
         if (nms): do_nms_obj(dets, num, meta.classes, nms)
         # res = []
 
         for j in range(num):
             for i in range(meta.classes):
-                if dets[j].prob[i] > 0:
+                if dets[j].prob[i] > 0 and meta.names[i] in self.targetObjects : # TODO need check targetObjects here
                     
                     b = dets[j].bbox
                     x1 = int(b.x - b.w / 2.)
@@ -487,6 +489,14 @@ class Detector(threading.Thread):
     def updateTarget(self,targetObjects):
         print("new targetObjects - {}".format(targetObjects))
         self.targetObjects = targetObjects
+    
+    def videoStop(self):
+        msg = {
+            "type": "STOP",
+            "robotId":self.robotId,
+            "videoId":self.videoId,
+        }
+        self.callback(msg)
 
 class SocketClient():
     def __init__(self, robotId, videoId, stream, callback):
