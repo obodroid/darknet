@@ -17,13 +17,6 @@ import base64
 fileDir = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(fileDir, ".."))
 
-# parser = argparse.ArgumentParser()
-# parser.add_argument('--configPath', type=str, help="Path to yolo's cfg.",default="cfg/yolov3.cfg")
-# parser.add_argument('--weightPath', type=str, help="Path to weight file.", default="../data/yolo/yolov3.weights")
-# parser.add_argument('--metaPath', type=str, help="Meta data file path.",default="cfg/coco.data")
-# parser.add_argument('--stream', type=str, help="stream uri",default="rtsp://admin:Obodroid@192.168.110.181/streaming/channels/1")
-# args = parser.parse_args()    
-
 def sample(probs):
     s = sum(probs)
     probs = [a/s for a in probs]
@@ -182,6 +175,7 @@ metaPath = "/src/darknet/cfg/coco.data"
 thresh=.8
 hier_thresh=.5
 nms=.45
+bufferSize = 3
 
 def classify(net, meta, im):
     out = predict_image(net, im)
@@ -236,73 +230,6 @@ def detect(net, meta, image, thresh=.5, hier_thresh=.5, nms=.45):
     if isinstance(image, bytes): free_image(im)
     free_detections(dets, num)
     return res
-
-# def runOnVideo(net, meta, vid_source, thresh=.8, hier_thresh=.5, nms=.45):
-#     video = cv2.VideoCapture(vid_source)
-#     video.set(cv2.CAP_PROP_BUFFERSIZE,10)
-#     count = 0
-
-#     classes_box_colors = [(0, 0, 255), (0, 255, 0)]  #red for palmup --> stop, green for thumbsup --> go
-#     classes_font_colors = [(255, 255, 0), (0, 255, 255)]
-#     while video.isOpened():
-#         res, frame = video.read()
-#         if not res:
-#             print "no res"
-#             break
-#         print("show res - {}".format(res))
-#         rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-#         im, arr = array_to_image(rgb_frame)
-        
-#         num = c_int(0)
-#         pnum = pointer(num)
-#         predict_image(net, im)
-#         dets = get_network_boxes(net, im.w, im.h, thresh, hier_thresh, None, 0, pnum)
-#         num = pnum[0]
-#         if (nms): do_nms_obj(dets, num, meta.classes, nms);
-#         # res = []
-
-#         print("range(num) - {}".format(range(num)))
-#         for j in range(num):
-#             print("dets[j] - {}".format(j))
-#             # print("bbox - {}".format(dets[j].bbox))
-#             print("classes - {}".format(dets[j].classes))
-#             # print("mask - {}".format(dets[j].mask))
-#             # print("objectness - {}".format(dets[j].objectness))
-#             # print("sort_class - {}".format(dets[j].sort_class))
-#             dup = 0
-#             for i in range(meta.classes):
-#                 if dets[j].prob[i] > 0:
-#                     ws.send("Found object - {}".format(meta.names[i]))
-#                     dup += 1
-#                     print("class - {}".format(meta.names[i]))
-#                     print("prob - {}".format(dets[j].prob[i]))
-#                     b = dets[j].bbox
-#                     x1 = int(b.x - b.w / 2.)
-#                     y1 = int(b.y - b.h / 2.)
-#                     x2 = int(b.x + b.w / 2.)
-#                     y2 = int(b.y + b.h / 2.)
-#                     cv2.rectangle(frame, (x1, y1), (x2, y2), classes_box_colors[1], 2)
-#                     cv2.putText(frame, meta.names[i], (x1, y1 - 20), 1, 1, classes_font_colors[0], 2, cv2.LINE_AA)
-
-#                 if dup > 1:
-#                     savefile = "dup-"+count+".jpg"
-#                     cv2.imwrite(savefile, face)
-#                     print("dup file - ".format(savefile))
-
-#         cv2.imshow('output', frame)
-#         if cv2.waitKey(1) == ord('q'):
-#             break        
-#         # print res
-
-#         count += 1
-    
-# if __name__ == "__main__":
-#     net = load_net(args.configPath, args.weightPath, 0)
-#     meta = load_meta(args.metaPath)
-#     vid_source = args.stream
-#     runOnVideo(net, meta, vid_source)    
-
-bufferSize = 3
 
 class Detector(threading.Thread):
     def __init__(self, robotId, videoId, stream, threshold, callback):
@@ -373,7 +300,6 @@ class Detector(threading.Thread):
         print("run VideoCapture isOpen - {}, fps - {}".format(self.video.isOpened(),fps))
         
         res, frame = self.video.read()
-            # print "count bf sleep - ",count
             
         if not res:
             print "Cannot retrive video."
@@ -382,14 +308,12 @@ class Detector(threading.Thread):
 
         for i in range(1,bufferSize):
             self.buf[i] = self.buf[0].copy()
-       
-        #fetchWorker = threading.Thread(target=self.fetchStream)
+            
         self.fetchWorker.start()
-
-        #detectWorker = threading.Thread(target=self.detectStream,args=([net,meta]))
         self.detectWorker.start()
 
         while self.isStop is False:
+            # if self.isShowDisplay:
             # print("main thread self.targetObjects - {}".format(self.targetObjects))
             # frame = self.displayStream()
             # print self.video_serial,' - raw frame'
@@ -404,11 +328,8 @@ class Detector(threading.Thread):
             #     cv2.imshow(dfTitle, detectFrame)
             #     if cv2.waitKey(1) == ord('q'):
             #         break
-
-            #time.sleep(3)
             self.count += 1
 
-        # # //TODO event video finish/stop
         print("stopStream VideoCapture - {}".format(self.video_serial))
         #self.video.release()
         #cv2.destroyWindow(self.video_serial+' - detect frame')
@@ -450,13 +371,12 @@ class Detector(threading.Thread):
                         base64Image = base64.b64encode(jpgImage)
                         # msg = "{}  at keyframe {}: object - {},prob - {},base64Image - {}".format(self.video_serial,keyframe,meta.names[i],dets[j].prob[i],base64Image)
 
-                        # TODO 
                         # - JSON message to send in callback
                         # - base64 image
                         # - keyframe.toString().padStart(8, 0)
                         # - targetObject and const wrapType = detectedObject.type.replace(' ', '_');
                         # - Prob threshold or detectedObject.percentage.slice(0, -1) > AI.default.threshold
-
+                        dataURL = "data:image/jpeg;base64,"+base64Image # dataUrl scheme
                         msg = {
                             "type": "DETECTED",
                             "robotId":self.robotId,
@@ -470,21 +390,18 @@ class Detector(threading.Thread):
                             },
                             "objectType": meta.names[i],
                             "prob":dets[j].prob[i],
-                            "dataURL":base64Image
+                            "dataURL":dataURL
                             
                         }
                     
                         self.callback(msg)
         return frame
 
-    # //TODO function stop
     def stopStream(self):
         self.fetchWorker.isStop = True
         self.detectWorker.isStop = True
         self.isStop = True
         print("stopStream self.isStop : {} , {} ".format(self.video_serial,self.isStop))
-        #self.stop()
-        #os.kill(int(self.pid), signal.SIGKILL)
 
     def updateTarget(self,targetObjects):
         print("new targetObjects - {}".format(targetObjects))
@@ -497,26 +414,3 @@ class Detector(threading.Thread):
             "videoId":self.videoId,
         }
         self.callback(msg)
-
-class SocketClient():
-    def __init__(self, robotId, videoId, stream, callback):
-        # TODO handle irregular case, end of stream
-        # self.video = None
-        # # self.robotId = robotId
-        # # self.videoId = videoId
-        # # self.stream = stream
-        self.video_serial = robotId + "-" + videoId
-        self.callback = callback
-        print "SocketClient Inited - ",self.video_serial 
-        self.detector = Detector(robotId,videoId,stream,self.runCallback)
-
-    def detect(self):
-        self.detector.start()
-    
-    def runCallback(self,msg):
-        self.callback(msg)
-    
-    def stopStream(self):
-        print("Wrapper stopStream - {}".format(self.video_serial))
-        self.detector.stopStream()
-

@@ -58,8 +58,6 @@ tls_crt = os.path.join(fileDir, 'tls', 'server.crt')
 tls_key = os.path.join(fileDir, 'tls', 'server.key')
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--shapePredictor', type=str, help="Path to dlib's shape predictor.",
-                    default="")
 parser.add_argument('--port', type=int, default=9000,
                     help='WebSocket Port')
 args = parser.parse_args()
@@ -128,13 +126,6 @@ class DarknetServerProtocol(WebSocketServerProtocol):
     
     def detectCallback(self, msg):
         self.sendMessage(json.dumps(msg))
-    
-    def update(self):
-        while True:
-            if self.msgQueue :
-                msg = self.msgQueue.pop()
-                # print("update msg - {}".format(msg))
-                self.sendMessage(json.dumps(msg))
             
 def main(reactor):
     log.startLogging(sys.stdout)
