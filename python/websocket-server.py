@@ -131,8 +131,11 @@ def main(reactor):
     log.startLogging(sys.stdout)
     factory = WebSocketServerFactory()
     factory.protocol = DarknetServerProtocol
-    ctx_factory = DefaultOpenSSLContextFactory(tls_key, tls_crt)
-    reactor.listenSSL(args.port, factory, ctx_factory)
+    reactor.listenTCP(args.port, factory)
+    reactor.run()
+    # factory.protocol = DarknetServerProtocol
+    # ctx_factory = DefaultOpenSSLContextFactory(tls_key, tls_crt)
+    # reactor.listenSSL(args.port, factory, ctx_factory)
     return Deferred()
 
 
