@@ -301,18 +301,22 @@ def nnDetect(robotId,videoId,frame,keyframe,targetObjects,callback):
                         dataURL = "data:image/jpeg;base64,"+base64Image # dataUrl scheme
                         msg = {
                             "type": "DETECTED",
-                            "robotId":robotId,
-                            "videoId":videoId,
+                            "robotId": robotId,
+                            "videoId": videoId,
                             "keyframe": keyframe,
+                            "frame": {
+                                "width":im.w,
+                                "height":im.h,
+                            },
                             "bbox": {
-                                "x":x1,
-                                "y":y1,
-                                "w":b.w,
-                                "h":b.h,
+                                "x": x1,
+                                "y": y1,
+                                "w": b.w,
+                                "h": b.h,
                             },
                             "objectType": meta.names[i],
-                            "prob":dets[j].prob[i],
-                            "dataURL":dataURL
+                            "prob": dets[j].prob[i],
+                            "dataURL": dataURL
                             
                         }
                     
