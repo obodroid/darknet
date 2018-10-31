@@ -274,8 +274,8 @@ def nnDetect(robotId,videoId,frame,keyframe,targetObjects,callback):
 
         for j in range(num):
             for i in range(meta.classes):
-                if dets[j].prob[i] > 0 and meta.names[i] in targetObjects : # TODO need check targetObjects here
-                    
+                hasTarget = True if  meta.names[i] in targetObjects or not targetObjects else False
+                if dets[j].prob[i] > 0 and hasTarget : # TODO need check targetObjects here    
                     b = dets[j].bbox
                     x1 = int(b.x - b.w / 2.)
                     y1 = int(b.y - b.h / 2.)
