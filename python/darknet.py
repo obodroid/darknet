@@ -1,4 +1,5 @@
 from ctypes import *
+from imutils.video import FPS
 import math
 import random
 import argparse
@@ -12,11 +13,28 @@ from twisted.internet.defer import Deferred, inlineCallbacks
 import os, signal
 import sys
 import json
+from datetime import datetime
 import time
 import base64
 import Queue
+import logging
 fileDir = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(fileDir, ".."))
+
+log = logging.getLogger() # 'root' Logger
+console = logging.StreamHandler()
+timeNow = datetime.fromtimestamp(time.time()).strftime('%Y-%m-%d_%H:%M:%S')
+logFile = logging.FileHandler("/src/benchmark/darknet_bench_{}.log".format(timeNow))
+
+format_str = '%(asctime)s\t%(levelname)s -- %(processName)s %(filename)s:%(lineno)s -- %(message)s'
+console.setFormatter(logging.Formatter(format_str))
+logFile.setFormatter(logging.Formatter(format_str))
+
+log.addHandler(console) # prints to console.
+log.addHandler(logFile) # prints to console.
+log.setLevel(logging.DEBUG) # anything ERROR or above
+log.warn('Import darknet.py!')
+log.critical('Going to load neural network over GPU!')
 
 def sample(probs):
     s = sum(probs)
@@ -178,8 +196,8 @@ hier_thresh=.5
 nms=.45
 bufferSize = 3
 
-net = load_net(configPath, weightPath, 0)
-meta = load_meta(metaPath)
+# net = load_net(configPath, weightPath, 0)
+# meta = load_meta(metaPath)
 
 def qput(robotId,videoId,frame,keyframe,targetObjects,callback):
     #print("{} ask qsize: {}".format(video_serial,detectQueue.qsize()))
@@ -189,7 +207,11 @@ def qput(robotId,videoId,frame,keyframe,targetObjects,callback):
     detectQueue.put([robotId,videoId,frame,keyframe,targetObjects,callback])
 
 def consume():
+    fps = FPS().start()
+    # TODO need flag to stop benchmark 
     while True:
+        fps.update()
+        log.info("nnDetect FPS: {:.2f}".format(fps.fps()))
         if not detectQueue.empty():
             robotId,videoId,frame,keyframe,targetObjects,callback = detectQueue.get()
             nnDetect(robotId,videoId,frame,keyframe,targetObjects,callback)
@@ -198,6 +220,7 @@ def consume():
             # cv2.imshow("All frame", frame)
             # if cv2.waitKey(1) == ord('q'):
             #     break
+    fps = FPS().stop()
 
 def classify(net, meta, im):
     out = predict_image(net, im)
@@ -253,8 +276,6 @@ def detect(net, meta, image, thresh=.5, hier_thresh=.5, nms=.45):
     free_detections(dets, num)
     return res
 
- 
-
 def nnDetect(robotId,videoId,frame,keyframe,targetObjects,callback):
         video_serial = robotId + "-" + videoId
         print("static nnDetect {} at keyframe {}, targetObjects {}, threshold {}".format(video_serial,keyframe,targetObjects,thresh))    
@@ -291,8 +312,8 @@ def nnDetect(robotId,videoId,frame,keyframe,targetObjects,callback):
                     if width > 0 and height > 0:
                         retval, jpgImage = cv2.imencode('.jpg', cropImage)
                         base64Image = base64.b64encode(jpgImage)
-                        # msg = "{}  at keyframe {}: object - {},prob - {},base64Image - {}".format(self.video_serial,keyframe,meta.names[i],dets[j].prob[i],base64Image)
-
+                        rawMsg = "Found {}  at keyframe {}: object - {},prob - {}".format(self.video_serial,keyframe,meta.names[i],dets[j].prob[i])
+                        log.info(rawMsg)
                         # - JSON message to send in callback
                         # - base64 image
                         # - keyframe.toString().padStart(8, 0)

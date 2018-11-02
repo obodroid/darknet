@@ -13,3 +13,4 @@ numpy >= 1.1, < 2.0
 pandas >= 0.13, < 0.18
 ptvsd == 3.0.0
 websocket-client >= 0.50
+imutils >= 0.5.1
