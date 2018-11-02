@@ -8,6 +8,7 @@ import numpy as np
 import threading
 from multiprocessing import Process
 from random import randint
+from threading import Timer
 from twisted.internet import task, reactor, threads
 from twisted.internet.defer import Deferred, inlineCallbacks
 import os, signal
@@ -196,31 +197,56 @@ hier_thresh=.5
 nms=.45
 bufferSize = 3
 
-# net = load_net(configPath, weightPath, 0)
-# meta = load_meta(metaPath)
+net = load_net(configPath, weightPath, 0)
+meta = load_meta(metaPath)
+benchmarks = {}
 
 def qput(robotId,videoId,frame,keyframe,targetObjects,callback):
-    #print("{} ask qsize: {}".format(video_serial,detectQueue.qsize()))
+    print("qsize: {}".format(detectQueue.qsize()))
+    startBenchmark(1.0,"dropframe")
     if detectQueue.full():
         dropFrame = detectQueue.get()
-        #print "drop frame"   
+        updateBenchmark("dropframe")
+        # print "drop frame"
     detectQueue.put([robotId,videoId,frame,keyframe,targetObjects,callback])
 
+def startBenchmark(period,tag):
+    if tag not in benchmarks:
+        print("startBenchmark {}".format(tag))
+        fps = FPS().start()
+        benchmarks[tag] = fps
+        t = Timer(period, endBenchmark,[fps,tag])
+        t.start() # after 30 seconds, "hello, world" will be printed
+
+def updateBenchmark(tag):
+    # print("updateBenchmark {}".format(tag))
+    if tag in benchmarks:
+        benchmarks[tag].update()
+
+def endBenchmark(fps,tag):
+    print("endBenchmark {}".format(tag))
+    fps.stop()
+    log.info("{} rate: {:.2f}".format(tag,fps.fps()))
+    del benchmarks[tag]
+    
+
 def consume():
-    fps = FPS().start()
+    
     # TODO need flag to stop benchmark 
     while True:
-        fps.update()
-        log.info("nnDetect FPS: {:.2f}".format(fps.fps()))
         if not detectQueue.empty():
+            fps = FPS().start()
             robotId,videoId,frame,keyframe,targetObjects,callback = detectQueue.get()
-            nnDetect(robotId,videoId,frame,keyframe,targetObjects,callback)
+            frame = nnDetect(robotId,videoId,frame,keyframe,targetObjects,callback)
+            
             #res = detect(net,meta,frame)
             #print res
-            # cv2.imshow("All frame", frame)
-            # if cv2.waitKey(1) == ord('q'):
-            #     break
-    fps = FPS().stop()
+            cv2.imshow("consume", frame)
+            if cv2.waitKey(1) == ord('q'):
+                break
+            fps.update()
+            fps.stop()
+            log.info("{} - nnDetect FPS: {:.2f}".format(keyframe,fps.fps()))  
 
 def classify(net, meta, im):
     out = predict_image(net, im)
@@ -278,7 +304,7 @@ def detect(net, meta, image, thresh=.5, hier_thresh=.5, nms=.45):
 
 def nnDetect(robotId,videoId,frame,keyframe,targetObjects,callback):
         video_serial = robotId + "-" + videoId
-        print("static nnDetect {} at keyframe {}, targetObjects {}, threshold {}".format(video_serial,keyframe,targetObjects,thresh))    
+        # print("static nnDetect {} at keyframe {}, targetObjects {}, threshold {}".format(video_serial,keyframe,targetObjects,thresh))    
         classes_box_colors = [(0, 0, 255), (0, 255, 0)]  #red for palmup --> stop, green for thumbsup --> go
         classes_font_colors = [(255, 255, 0), (0, 255, 255)]
 
@@ -312,8 +338,8 @@ def nnDetect(robotId,videoId,frame,keyframe,targetObjects,callback):
                     if width > 0 and height > 0:
                         retval, jpgImage = cv2.imencode('.jpg', cropImage)
                         base64Image = base64.b64encode(jpgImage)
-                        rawMsg = "Found {}  at keyframe {}: object - {},prob - {}".format(self.video_serial,keyframe,meta.names[i],dets[j].prob[i])
-                        log.info(rawMsg)
+                        rawMsg = "Found {}  at keyframe {}: object - {},prob - {}".format(video_serial,keyframe,meta.names[i],dets[j].prob[i])
+                        # log.info(rawMsg)
                         # - JSON message to send in callback
                         # - base64 image
                         # - keyframe.toString().padStart(8, 0)
@@ -342,7 +368,7 @@ def nnDetect(robotId,videoId,frame,keyframe,targetObjects,callback):
                         }
                     
                         callback(msg)
-        # return frame
+        return frame
 
 detectQueue = Queue.Queue(maxsize=100)
 queueWorker = threading.Thread(target=consume)
@@ -359,6 +385,7 @@ class Detector(threading.Thread):
         self.robotId = robotId
         self.videoId = videoId
         self.stream = stream
+        self.fps = 10
         self.video_serial = robotId + "-" + videoId
         self.buf = [None] * bufferSize
         self.bufId = 0
@@ -381,15 +408,22 @@ class Detector(threading.Thread):
 
     def fetchStream(self):
         while self.video.isOpened() and self.fetchWorker.isStop is False:
-            self.bufId = (self.bufId + 1) % bufferSize
+            #self.bufId = (self.bufId + 1) % bufferSize
             res, frame = self.video.read()
 
             if not res:
-                print "Cannot retrive video."
+                print "Cannot retrieve video."
 
-            self.buf[self.bufId] = frame
-
-        if not self.video.isOpened():
+            #self.buf[self.bufId] = frame
+            qput(self.robotId,self.videoId,frame,self.count,self.targetObjects,self.callback)
+            self.count += 1
+            delay = int(1000/self.fps)
+            # cv2.imshow("consume", frame)
+            # if cv2.waitKey(1) == ord('q'):
+            #     break
+            cv2.waitKey(1)
+        
+        if self.video.isOpened():
             self.videoStop()
     
     def detectStream(self):
@@ -399,12 +433,8 @@ class Detector(threading.Thread):
             frame = self.buf[self.bufId].copy()
             keyframe = self.count
             qput(self.robotId,self.videoId,frame,keyframe,self.targetObjects,self.callback)
-            # detectQueue.put(frame)
-            # nnDetect(self.robotId,self.videoId,frame,keyframe,self.targetObjects,self.callback)
-            
-            # frame = self.nnDetect(frame,keyframe,net,meta)
-            # frame = nnDetect(self.robotId,self.videoId,frame,keyframe,self.targetObjects,self.callback)
-            # self.detectBuf[self.detectBufId] = frame
+            delay = int(1000/self.fps)
+            cv2.waitKey(delay)
 
     def displayStream(self):
         frame = self.buf[self.bufId].copy()
@@ -417,24 +447,24 @@ class Detector(threading.Thread):
 
     def processStream(self):
         self.video = cv2.VideoCapture(self.stream)
-        self.video.set(cv2.CAP_PROP_BUFFERSIZE,1)
-        fps = self.video.get(cv2.CAP_PROP_FPS)
-        print("run VideoCapture isOpen - {}, fps - {}".format(self.video.isOpened(),fps))
+        self.video.set(cv2.CAP_PROP_BUFFERSIZE,10)
+        self.fps = self.video.get(cv2.CAP_PROP_FPS)
+        print("run VideoCapture isOpen - {}, fps - {}".format(self.video.isOpened(),self.fps))
         
-        res, frame = self.video.read()
+        # res, frame = self.video.read()
             
-        if not res:
-            print "Cannot retrive video."
+        # if not res:
+        #     print "Cannot retrive video."
 
-        self.buf[self.bufId] = frame
+        # self.buf[self.bufId] = frame
 
-        for i in range(1,bufferSize):
-            self.buf[i] = self.buf[0].copy()
+        # for i in range(1,bufferSize):
+        #     self.buf[i] = self.buf[0].copy()
             
         self.fetchWorker.start()
-        self.detectWorker.start()
+        #self.detectWorker.start()
 
-        while self.isStop is False:
+        #while self.isStop is False:
             # if self.isShowDisplay:
             # print("main thread self.targetObjects - {}".format(self.targetObjects))
             # frame = self.displayStream()
@@ -450,9 +480,9 @@ class Detector(threading.Thread):
             #     cv2.imshow(dfTitle, detectFrame)
             #     if cv2.waitKey(1) == ord('q'):
             #         break
-            self.count += 1
+            #self.count += 1
 
-        print("stopStream VideoCapture - {}".format(self.video_serial))
+        #print("stopStream VideoCapture - {}".format(self.video_serial))
         #self.video.release()
         #cv2.destroyWindow(self.video_serial+' - detect frame')
 
