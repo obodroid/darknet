@@ -202,7 +202,7 @@ meta = load_meta(metaPath)
 benchmarks = {}
 
 def qput(robotId,videoId,frame,keyframe,targetObjects,callback):
-    print("qsize: {}".format(detectQueue.qsize()))
+    #print("qsize: {}".format(detectQueue.qsize()))
     startBenchmark(1.0,"dropframe")
     if detectQueue.full():
         dropFrame = detectQueue.get()
@@ -227,7 +227,8 @@ def endBenchmark(fps,tag):
     print("endBenchmark {}".format(tag))
     fps.stop()
     log.info("{} rate: {:.2f}".format(tag,fps.fps()))
-    del benchmarks[tag]
+    if tag in benchmarks:
+        del benchmarks[tag]
     
 
 def consume():
@@ -239,11 +240,9 @@ def consume():
             robotId,videoId,frame,keyframe,targetObjects,callback = detectQueue.get()
             frame = nnDetect(robotId,videoId,frame,keyframe,targetObjects,callback)
             
-            #res = detect(net,meta,frame)
-            #print res
-            cv2.imshow("consume", frame)
-            if cv2.waitKey(1) == ord('q'):
-                break
+            # cv2.imshow("consume", frame)
+            # if cv2.waitKey(1) == ord('q'):
+            #     break
             fps.update()
             fps.stop()
             log.info("{} - nnDetect FPS: {:.2f}".format(keyframe,fps.fps()))  
@@ -397,8 +396,6 @@ class Detector(threading.Thread):
         self.targetObjects = []
         self.fetchWorker = threading.Thread(target=self.fetchStream)
         self.fetchWorker.isStop = False
-        self.detectWorker = threading.Thread(target=self.detectStream,args=([]))
-        self.detectWorker.isStop = False
         threading.Thread.__init__(self)
         print "Detector Inited - ",self.video_serial 
 
@@ -416,8 +413,8 @@ class Detector(threading.Thread):
 
             #self.buf[self.bufId] = frame
             qput(self.robotId,self.videoId,frame,self.count,self.targetObjects,self.callback)
+            log.info("fetchStream {}, put {} to queue".format(self.video_serial,self.count))
             self.count += 1
-            delay = int(1000/self.fps)
             # cv2.imshow("consume", frame)
             # if cv2.waitKey(1) == ord('q'):
             #     break
@@ -426,15 +423,6 @@ class Detector(threading.Thread):
         if self.video.isOpened():
             self.videoStop()
     
-    def detectStream(self):
-        while self.detectWorker.isStop is False:
-            #print('{} - detectStream, targetObjects - {}'.format(self.video_serial,self.targetObjects))
-            self.detectBufId = (self.detectBufId + 1) % bufferSize
-            frame = self.buf[self.bufId].copy()
-            keyframe = self.count
-            qput(self.robotId,self.videoId,frame,keyframe,self.targetObjects,self.callback)
-            delay = int(1000/self.fps)
-            cv2.waitKey(delay)
 
     def displayStream(self):
         frame = self.buf[self.bufId].copy()
@@ -449,48 +437,13 @@ class Detector(threading.Thread):
         self.video = cv2.VideoCapture(self.stream)
         self.video.set(cv2.CAP_PROP_BUFFERSIZE,10)
         self.fps = self.video.get(cv2.CAP_PROP_FPS)
-        print("run VideoCapture isOpen - {}, fps - {}".format(self.video.isOpened(),self.fps))
-        
-        # res, frame = self.video.read()
-            
-        # if not res:
-        #     print "Cannot retrive video."
-
-        # self.buf[self.bufId] = frame
-
-        # for i in range(1,bufferSize):
-        #     self.buf[i] = self.buf[0].copy()
-            
+        print("run VideoCapture isOpen - {}, fps - {}".format(self.video.isOpened(),self.fps))    
         self.fetchWorker.start()
-        #self.detectWorker.start()
-
-        #while self.isStop is False:
-            # if self.isShowDisplay:
-            # print("main thread self.targetObjects - {}".format(self.targetObjects))
-            # frame = self.displayStream()
-            # print self.video_serial,' - raw frame'
-            # cv2.imshow(self.video_serial, frame)
-            # if cv2.waitKey(1) == ord('q'):
-            #     break
-            
-            # detectFrame = self.displayDetectStream()
-            # if detectFrame is not None:
-            #     dfTitle = self.video_serial+' - detect frame'
-            #     #print dfTitle
-            #     cv2.imshow(dfTitle, detectFrame)
-            #     if cv2.waitKey(1) == ord('q'):
-            #         break
-            #self.count += 1
-
-        #print("stopStream VideoCapture - {}".format(self.video_serial))
-        #self.video.release()
-        #cv2.destroyWindow(self.video_serial+' - detect frame')
-
+        self.fetchWorker.join()
+        
     def stopStream(self):
         self.fetchWorker.isStop = True
-        self.detectWorker.isStop = True
-        self.isStop = True
-        print("stopStream self.isStop : {} , {} ".format(self.video_serial,self.isStop))
+        print("stopStream self.isStop : {} , {} ".format(self.video_serial,self.fetchWorker.isStop))
 
     def updateTarget(self,targetObjects):
         print("new targetObjects - {}".format(targetObjects))
