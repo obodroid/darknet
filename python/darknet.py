@@ -230,9 +230,7 @@ def endBenchmark(fps,tag):
     if tag in benchmarks:
         del benchmarks[tag]
     
-
 def consume():
-    
     # TODO need flag to stop benchmark 
     while True:
         if not detectQueue.empty():
@@ -254,7 +252,6 @@ def classify(net, meta, im):
         res.append((meta.names[i], out[i]))
     res = sorted(res, key=lambda x: -x[1])
     return res
-
 
 def array_to_image(arr):
     # need to return old values to avoid python freeing memory
@@ -393,6 +390,7 @@ class Detector(threading.Thread):
         self.callback = callback
         self.isDisplay = True # TODO should receive args to display or not
         self.count = 0
+        self.intervalTime = 0.2
         self.targetObjects = []
         self.fetchWorker = threading.Thread(target=self.fetchStream)
         self.fetchWorker.isStop = False
@@ -404,25 +402,30 @@ class Detector(threading.Thread):
         self.processStream()
 
     def fetchStream(self):
+        nextReadTime = time.clock()
+
         while self.video.isOpened() and self.fetchWorker.isStop is False:
-            #self.bufId = (self.bufId + 1) % bufferSize
-            res, frame = self.video.read()
+            if time.clock() > nextReadTime:
+                #self.bufId = (self.bufId + 1) % bufferSize
+                res, frame = self.video.read()
+
+                #self.buf[self.bufId] = frame
+                qput(self.robotId,self.videoId,frame,self.count,self.targetObjects,self.callback)
+                log.info("fetchStream {}, put {} to queue".format(self.video_serial,self.count))
+                self.count += 1
+
+                nextReadTime = time.clock() + self.intervalTime
+                # cv2.imshow("consume", frame)
+            else:
+                res = self.video.grab()
 
             if not res:
-                print "Cannot retrieve video."
+                print "cannot retrieve video"
 
-            #self.buf[self.bufId] = frame
-            qput(self.robotId,self.videoId,frame,self.count,self.targetObjects,self.callback)
-            log.info("fetchStream {}, put {} to queue".format(self.video_serial,self.count))
-            self.count += 1
-            # cv2.imshow("consume", frame)
-            # if cv2.waitKey(1) == ord('q'):
-            #     break
             cv2.waitKey(1)
         
         if self.video.isOpened():
             self.videoStop()
-    
 
     def displayStream(self):
         frame = self.buf[self.bufId].copy()
