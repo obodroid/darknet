@@ -26,6 +26,7 @@ log = logging.getLogger() # 'root' Logger
 console = logging.StreamHandler()
 timeNow = datetime.fromtimestamp(time.time()).strftime('%Y-%m-%d_%H:%M:%S')
 logFile = logging.FileHandler("/src/benchmark/darknet_bench_{}.log".format(timeNow))
+saveDir = "/src/benchmark/images/"
 
 format_str = '%(asctime)s\t%(levelname)s -- %(processName)s %(filename)s:%(lineno)s -- %(message)s'
 console.setFormatter(logging.Formatter(format_str))
@@ -36,6 +37,8 @@ log.addHandler(logFile) # prints to console.
 log.setLevel(logging.DEBUG) # anything ERROR or above
 log.warn('Import darknet.py!')
 log.critical('Going to load neural network over GPU!')
+
+mode = ''
 
 def sample(probs):
     s = sum(probs)
@@ -201,14 +204,14 @@ benchmarks = {}
 
 def qput(robotId,videoId,frame,keyframe,targetObjects,callback):
     # print("qsize: {}".format(detectQueue.qsize()))
-    startBenchmark(1.0,"dropframe")
+    startBenchmark(10.0,"dropframe")
     if detectQueue.full():
         dropFrame = detectQueue.get()
         updateBenchmark("dropframe")
     detectQueue.put([robotId,videoId,frame,keyframe,targetObjects,callback])
 
 def startBenchmark(period,tag):
-    if tag not in benchmarks:
+    if tag not in benchmarks and mode == 'benchmark' :
         print("startBenchmark {}".format(tag))
         fps = FPS().start()
         benchmarks[tag] = fps
@@ -226,20 +229,34 @@ def endBenchmark(fps,tag):
     log.info("{} rate: {:.2f}".format(tag,fps.fps()))
     if tag in benchmarks:
         del benchmarks[tag]
-    
+
+imageCount = 0
+def saveImage(img,label):
+    if mode == 'benchmark' :
+        imageCount += 1
+        filename = '{}.'format(imageCount)
+        filepath = '{}/{}/{}.jpg'.format(saveDir,label,filename)
+
+        if not os.path.exists(os.path.dirname(filepath)):
+            try:
+                os.makedirs(os.path.dirname(filename))
+            except OSError as exc: # Guard against race condition
+                if exc.errno != errno.EEXIST:
+                    raise
+        cv2.imwrite(filepath,img)
+
 def consume():
     # TODO need flag to stop benchmark 
     while True:
         if not detectQueue.empty():
-            fps = FPS().start()
+            startBenchmark(10.0,"NN-process")
             robotId,videoId,frame,keyframe,targetObjects,callback = detectQueue.get()
             frame = nnDetect(robotId,videoId,frame,keyframe,targetObjects,callback)
             # cv2.imshow("consume", frame)
             # if cv2.waitKey(1) == ord('q'):
             #     break
-            fps.update()
-            fps.stop()
-            log.info("{} - nnDetect FPS: {:.2f}".format(keyframe,fps.fps()))
+            updateBenchmark("NN-process")
+            log.info("{} - nnDetect FPS: {:.2f}".format(keyframe,fps.fps()))  
 
 def classify(net, meta, im):
     out = predict_image(net, im)
@@ -338,7 +355,9 @@ def nnDetect(robotId,videoId,frame,keyframe,targetObjects,callback):
 
                     logMsg = "Found {} at keyframe {}: object - {}, prob - {}".format(video_serial,keyframe,meta.names[i],dets[j].prob[i])
                     log.info(logMsg)
-
+                    
+                    saveImage(cropImage,meta.names[i]) # benchmark
+                    
                     # - JSON message to send in callback
                     # - base64 image
                     # - keyframe.toString().padStart(8, 0)

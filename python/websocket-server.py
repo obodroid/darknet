@@ -63,6 +63,7 @@ parser.add_argument('--port', type=int, default=9000,
 args = parser.parse_args()
 
 import darknet
+darknet.mode = 'benchmark'
 
 class DarknetServerProtocol(WebSocketServerProtocol):
     def __init__(self):
