@@ -321,6 +321,11 @@ def nnDetect(robotId,videoId,frame,keyframe,targetObjects,callback):
                 y1 = int(b.y - b.h / 2.)
                 x2 = int(b.x + b.w / 2.)
                 y2 = int(b.y + b.h / 2.)
+
+                x1 = x1 if x1 >= 0 else 0
+                y1 = y1 if y1 >= 0 else 0
+                x2 = x2 if x2 <= im.w else im.w
+                y2 = y2 if y2 <= im.h else im.h
                 
                 cv2.rectangle(frame, (x1, y1), (x2, y2), classes_box_colors[1], 2)
                 cv2.putText(frame, meta.names[i], (x1, y1 - 20), 1, 1, classes_font_colors[0], 2, cv2.LINE_AA)
