@@ -239,7 +239,14 @@ def saveImage(img,label):
         imageCount += 1
         filename = '{}.'format(imageCount)
         filepath = '{}/{}/{}.jpg'.format(saveDir,label,filename)
-        cv2.imwrite('{}{}.jpg',img)
+
+        if not os.path.exists(os.path.dirname(filepath)):
+            try:
+                os.makedirs(os.path.dirname(filename))
+            except OSError as exc: # Guard against race condition
+                if exc.errno != errno.EEXIST:
+                    raise
+        cv2.imwrite(filepath,img)
 
 def consume():
     # TODO need flag to stop benchmark 
@@ -345,6 +352,8 @@ def nnDetect(robotId,videoId,frame,keyframe,targetObjects,callback):
                         retval, jpgImage = cv2.imencode('.jpg', cropImage)
                         base64Image = base64.b64encode(jpgImage)
                         rawMsg = "Found {}  at keyframe {}: object - {},prob - {}".format(video_serial,keyframe,meta.names[i],dets[j].prob[i])
+                        
+                        saveImage(cropImage,meta.names[i]) #benchmark
                         # log.info(rawMsg)
                         # - JSON message to send in callback
                         # - base64 image
