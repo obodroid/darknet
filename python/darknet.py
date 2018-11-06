@@ -202,6 +202,8 @@ net = load_net(configPath, weightPath, 0)
 meta = load_meta(metaPath)
 benchmarks = {}
 
+imageCount = 0
+
 def qput(robotId,videoId,frame,keyframe,targetObjects,callback):
     # print("qsize: {}".format(detectQueue.qsize()))
     startBenchmark(10.0,"dropframe")
@@ -230,33 +232,35 @@ def endBenchmark(fps,tag):
     if tag in benchmarks:
         del benchmarks[tag]
 
-imageCount = 0
 def saveImage(img,label):
+    global imageCount
     if mode == 'benchmark' :
         imageCount += 1
-        filename = '{}.'format(imageCount)
+        filename = '{}'.format(imageCount)
         filepath = '{}/{}/{}.jpg'.format(saveDir,label,filename)
 
         if not os.path.exists(os.path.dirname(filepath)):
             try:
-                os.makedirs(os.path.dirname(filename))
+                os.makedirs(os.path.dirname(filepath))
             except OSError as exc: # Guard against race condition
-                if exc.errno != errno.EEXIST:
-                    raise
+                print "OSError:cannot make directory."
         cv2.imwrite(filepath,img)
 
 def consume():
     # TODO need flag to stop benchmark 
     while True:
         if not detectQueue.empty():
-            startBenchmark(10.0,"NN-process")
+            # startBenchmark(10.0,"NN-process")
+            fps = FPS().start()
             robotId,videoId,frame,keyframe,targetObjects,callback = detectQueue.get()
             frame = nnDetect(robotId,videoId,frame,keyframe,targetObjects,callback)
+            fps.update()
+            fps.stop()
+            log.info("{} rate: {:.2f}".format("consume detect",fps.fps()))
             # cv2.imshow("consume", frame)
             # if cv2.waitKey(1) == ord('q'):
             #     break
-            updateBenchmark("NN-process")
-            log.info("{} - nnDetect FPS: {:.2f}".format(keyframe,fps.fps()))  
+            # updateBenchmark("NN-process")
 
 def classify(net, meta, im):
     out = predict_image(net, im)
@@ -412,7 +416,7 @@ class Detector(threading.Thread):
         self.callback = callback
         self.isDisplay = True # TODO should receive args to display or not
         self.count = 0
-        self.intervalTime = 0.2
+        self.intervalTime = 0.1
         self.targetObjects = []
         self.fetchWorker = threading.Thread(target=self.fetchStream)
         self.fetchWorker.setDaemon(True)
@@ -433,11 +437,11 @@ class Detector(threading.Thread):
 
                 #self.buf[self.bufId] = frame
                 qput(self.robotId,self.videoId,frame,self.count,self.targetObjects,self.callback)
-                log.info("fetchStream {}, put {} to queue".format(self.video_serial,self.count))
+                # log.info("fetchStream {}, put {} to queue".format(self.video_serial,self.count))
                 self.count += 1
 
                 nextReadTime = time.clock() + self.intervalTime
-                # cv2.imshow("consume", frame)
+                # cv2.imshow("fetchStream", frame)
             else:
                 res = self.video.grab()
 
