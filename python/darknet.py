@@ -118,8 +118,6 @@ class iplimage_t(Structure):
                 ('data', py_object),
                 ('offset', c_size_t)]
 
-
-#lib = CDLL("/home/pjreddie/documents/darknet/libdarknet.so", RTLD_GLOBAL)
 lib = CDLL("/src/darknet/libdarknet.so", RTLD_GLOBAL)
 lib.network_width.argtypes = [c_void_p]
 lib.network_width.restype = c_int
@@ -202,12 +200,11 @@ meta = load_meta(metaPath)
 benchmarks = {}
 
 def qput(robotId,videoId,frame,keyframe,targetObjects,callback):
-    #print("qsize: {}".format(detectQueue.qsize()))
+    # print("qsize: {}".format(detectQueue.qsize()))
     startBenchmark(1.0,"dropframe")
     if detectQueue.full():
         dropFrame = detectQueue.get()
         updateBenchmark("dropframe")
-        # print "drop frame"
     detectQueue.put([robotId,videoId,frame,keyframe,targetObjects,callback])
 
 def startBenchmark(period,tag):
@@ -237,13 +234,12 @@ def consume():
             fps = FPS().start()
             robotId,videoId,frame,keyframe,targetObjects,callback = detectQueue.get()
             frame = nnDetect(robotId,videoId,frame,keyframe,targetObjects,callback)
-            
             # cv2.imshow("consume", frame)
             # if cv2.waitKey(1) == ord('q'):
             #     break
             fps.update()
             fps.stop()
-            log.info("{} - nnDetect FPS: {:.2f}".format(keyframe,fps.fps()))  
+            log.info("{} - nnDetect FPS: {:.2f}".format(keyframe,fps.fps()))
 
 def classify(net, meta, im):
     out = predict_image(net, im)
@@ -299,76 +295,78 @@ def detect(net, meta, image, thresh=.5, hier_thresh=.5, nms=.45):
     return res
 
 def nnDetect(robotId,videoId,frame,keyframe,targetObjects,callback):
-        video_serial = robotId + "-" + videoId
-        # print("static nnDetect {} at keyframe {}, targetObjects {}, threshold {}".format(video_serial,keyframe,targetObjects,thresh))    
-        classes_box_colors = [(0, 0, 255), (0, 255, 0)]  #red for palmup --> stop, green for thumbsup --> go
-        classes_font_colors = [(255, 255, 0), (0, 255, 255)]
+    video_serial = robotId + "-" + videoId
+    # print("nnDetect {} at keyframe {}, targetObjects {}, threshold {}".format(video_serial,keyframe,targetObjects,thresh))    
+    classes_box_colors = [(0, 0, 255), (0, 255, 0)]  #red for palmup --> stop, green for thumbsup --> go
+    classes_font_colors = [(255, 255, 0), (0, 255, 255)]
 
-        rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        im, arr = array_to_image(rgb_frame)
+    rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+    im, arr = array_to_image(rgb_frame)
 
-        num = c_int(0)
-        pnum = pointer(num)
-        predict_image(net, im)
-        dets = get_network_boxes(net, im.w, im.h, thresh, hier_thresh, None, 0, pnum)
-        num = pnum[0]
-        if (nms): do_nms_obj(dets, num, meta.classes, nms)
-        # res = []
+    num = c_int(0)
+    pnum = pointer(num)
+    predict_image(net, im)
+    dets = get_network_boxes(net, im.w, im.h, thresh, hier_thresh, None, 0, pnum)
+    num = pnum[0]
 
-        for j in range(num):
-            for i in range(meta.classes):
-                hasTarget = True if  meta.names[i] in targetObjects or not targetObjects else False
-                if dets[j].prob[i] > 0 and hasTarget : # TODO need check targetObjects here    
-                    b = dets[j].bbox
-                    x1 = int(b.x - b.w / 2.)
-                    y1 = int(b.y - b.h / 2.)
-                    x2 = int(b.x + b.w / 2.)
-                    y2 = int(b.y + b.h / 2.)
-                    
-                    cv2.rectangle(frame, (x1, y1), (x2, y2), classes_box_colors[1], 2)
-                    cv2.putText(frame, meta.names[i], (x1, y1 - 20), 1, 1, classes_font_colors[0], 2, cv2.LINE_AA)
+    if (nms): do_nms_obj(dets, num, meta.classes, nms)
 
-                    cropImage = frame[y1:y2, x1:x2] # frame[y:y+h, x:x+w]
-                    # print "Crop image shape {}".format(cropImage.shape)
-                    height, width, channels = cropImage.shape
-                    if width > 0 and height > 0:
-                        retval, jpgImage = cv2.imencode('.jpg', cropImage)
-                        base64Image = base64.b64encode(jpgImage)
-                        rawMsg = "Found {}  at keyframe {}: object - {},prob - {}".format(video_serial,keyframe,meta.names[i],dets[j].prob[i])
-                        # log.info(rawMsg)
-                        # - JSON message to send in callback
-                        # - base64 image
-                        # - keyframe.toString().padStart(8, 0)
-                        # - targetObject and const wrapType = detectedObject.type.replace(' ', '_');
-                        # - Prob threshold or detectedObject.percentage.slice(0, -1) > AI.default.threshold
-                        dataURL = "data:image/jpeg;base64,"+base64Image # dataUrl scheme
-                        msg = {
-                            "type": "DETECTED",
-                            "robotId": robotId,
-                            "videoId": videoId,
-                            "keyframe": keyframe,
-                            "frame": {
-                                "width":im.w,
-                                "height":im.h,
-                            },
-                            "bbox": {
-                                "x": x1,
-                                "y": y1,
-                                "w": b.w,
-                                "h": b.h,
-                            },
-                            "objectType": meta.names[i],
-                            "prob": dets[j].prob[i],
-                            "dataURL": dataURL
-                            
-                        }
-                    
-                        callback(msg)
-        return frame
+    for j in range(num):
+        for i in range(meta.classes):
+            hasTarget = True if meta.names[i] in targetObjects or not targetObjects else False
+
+            if dets[j].prob[i] > 0 and hasTarget:                
+                b = dets[j].bbox
+                x1 = int(b.x - b.w / 2.)
+                y1 = int(b.y - b.h / 2.)
+                x2 = int(b.x + b.w / 2.)
+                y2 = int(b.y + b.h / 2.)
+                
+                cv2.rectangle(frame, (x1, y1), (x2, y2), classes_box_colors[1], 2)
+                cv2.putText(frame, meta.names[i], (x1, y1 - 20), 1, 1, classes_font_colors[0], 2, cv2.LINE_AA)
+
+                cropImage = frame[y1:y2, x1:x2]
+                height, width, channels = cropImage.shape
+                if width > 0 and height > 0:
+                    retval, jpgImage = cv2.imencode('.jpg', cropImage)
+                    base64Image = base64.b64encode(jpgImage)
+
+                    logMsg = "Found {} at keyframe {}: object - {}, prob - {}".format(video_serial,keyframe,meta.names[i],dets[j].prob[i])
+                    log.info(logMsg)
+
+                    # - JSON message to send in callback
+                    # - base64 image
+                    # - keyframe.toString().padStart(8, 0)
+                    # - targetObject and const wrapType = detectedObject.type.replace(' ', '_');
+                    # - Prob threshold or detectedObject.percentage.slice(0, -1) > AI.default.threshold
+                    dataURL = "data:image/jpeg;base64,"+base64Image # dataUrl scheme
+                    msg = {
+                        "type": "DETECTED",
+                        "robotId": robotId,
+                        "videoId": videoId,
+                        "keyframe": keyframe,
+                        "frame": {
+                            "width":im.w,
+                            "height":im.h,
+                        },
+                        "bbox": {
+                            "x": x1,
+                            "y": y1,
+                            "w": b.w,
+                            "h": b.h,
+                        },
+                        "objectType": meta.names[i],
+                        "prob": dets[j].prob[i],
+                        "dataURL": dataURL
+                    }
+                    callback(msg)
+
+    return frame
 
 detectQueue = Queue.Queue(maxsize=100)
-queueWorker = threading.Thread(target=consume)
-queueWorker.start()
+detectWorker = threading.Thread(target=consume)
+detectWorker.setDaemon(True)
+detectWorker.start()
 
 class Detector(threading.Thread):
     def __init__(self, robotId, videoId, stream, threshold, callback):
@@ -393,12 +391,12 @@ class Detector(threading.Thread):
         self.intervalTime = 0.2
         self.targetObjects = []
         self.fetchWorker = threading.Thread(target=self.fetchStream)
+        self.fetchWorker.setDaemon(True)
         self.fetchWorker.isStop = False
         threading.Thread.__init__(self)
         print "Detector Inited - ",self.video_serial 
 
     def run(self):
-        #print('video {} >> processStream pid : {}'.format(self.video_serial, self.pid))
         self.processStream()
 
     def fetchStream(self):

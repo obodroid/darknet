@@ -120,6 +120,7 @@ class DarknetServerProtocol(WebSocketServerProtocol):
             return
 
         detector = darknet.Detector(robotId,videoId,stream,threshold,self.detectCallback)
+        detector.setDaemon(True)
         detector.start()
         self.detectors[video_serial] = detector
         
