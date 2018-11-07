@@ -4,6 +4,8 @@ import os, signal
 import sys
 from datetime import datetime
 import time
+import cv2
+from threading import Timer
 import logging
 
 log = logging.getLogger() # 'root' Logger
@@ -22,7 +24,7 @@ log.setLevel(logging.DEBUG) # anything ERROR or above
 # log.warn('Import darknet.py!')
 # log.critical('Going to load neural network over GPU!')
 
-mode = ''
+mode = 'benchmark'
 benchmarks = {}
 imageCount = 0
 
@@ -45,3 +47,20 @@ def endBenchmark(fps,tag):
     log.info("{} rate: {:.2f}".format(tag,fps.fps()))
     if tag in benchmarks:
         del benchmarks[tag]
+
+def saveImage(img,label):
+    global imageCount
+    if mode == 'benchmark' :
+        imageCount += 1
+        filename = '{}'.format(imageCount)
+        filepath = '{}/{}/{}.jpg'.format(saveDir,label,filename)
+
+        if not os.path.exists(os.path.dirname(filepath)):
+            try:
+                os.makedirs(os.path.dirname(filepath))
+            except OSError as exc: # Guard against race condition
+                print "OSError:cannot make directory."
+        cv2.imwrite(filepath,img)
+
+def logInfo(msg):
+    log.info(msg)

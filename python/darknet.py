@@ -234,20 +234,6 @@ def qput(robotId,videoId,frame,keyframe,targetObjects,callback):
 #     if tag in benchmarks:
 #         del benchmarks[tag]
 
-def saveImage(img,label):
-    global imageCount
-    if mode == 'benchmark' :
-        imageCount += 1
-        filename = '{}'.format(imageCount)
-        filepath = '{}/{}/{}.jpg'.format(saveDir,label,filename)
-
-        if not os.path.exists(os.path.dirname(filepath)):
-            try:
-                os.makedirs(os.path.dirname(filepath))
-            except OSError as exc: # Guard against race condition
-                print "OSError:cannot make directory."
-        cv2.imwrite(filepath,img)
-
 def consume():
     # TODO need flag to stop benchmark 
     while True:
@@ -258,7 +244,7 @@ def consume():
             frame = nnDetect(robotId,videoId,frame,keyframe,targetObjects,callback)
             fps.update()
             fps.stop()
-            log.info("{} rate: {:.2f}".format("consume detect",fps.fps()))
+            benchmark.logInfo("{} rate: {:.2f}".format("consume detect",fps.fps()))
             # cv2.imshow("consume", frame)
             # if cv2.waitKey(1) == ord('q'):
             #     break
@@ -360,9 +346,8 @@ def nnDetect(robotId,videoId,frame,keyframe,targetObjects,callback):
                     base64Image = base64.b64encode(jpgImage)
 
                     logMsg = "Found {} at keyframe {}: object - {}, prob - {}".format(video_serial,keyframe,meta.names[i],dets[j].prob[i])
-                    log.info(logMsg)
-                    
-                    saveImage(cropImage,meta.names[i]) # benchmark
+                    benchmark.logInfo(logMsg)   
+                    benchmark.saveImage(cropImage,meta.names[i]) # benchmark
                     
                     # - JSON message to send in callback
                     # - base64 image
