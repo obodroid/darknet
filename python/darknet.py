@@ -403,6 +403,8 @@ class Detector(threading.Thread):
                 #self.bufId = (self.bufId + 1) % bufferSize
                 res, frame = self.video.read()
 
+                self.sendLogMessage(self.count,"frame_read")
+
                 #self.buf[self.bufId] = frame
                 qput(self.robotId,self.videoId,frame,self.count,self.targetObjects,self.callback)
                 # log.info("fetchStream {}, put {} to queue".format(self.video_serial,self.count))
@@ -451,5 +453,14 @@ class Detector(threading.Thread):
             "type": "STOP",
             "robotId":self.robotId,
             "videoId":self.videoId,
+        }
+        self.callback(msg)
+
+    def sendLogMessage(self, keyframe, step):
+        msg = {
+            "type": "LOG",
+            "keyframe": keyframe,
+            "step": step,
+            "time": datetime.now().isoformat()
         }
         self.callback(msg)

@@ -97,7 +97,6 @@ class DarknetServerProtocol(WebSocketServerProtocol):
                 self.detectors[video_serial].stopStream()
                 self.detectors[video_serial].join()
                 del self.detectors[video_serial]
-
         elif msg['type'] == "ECHO":
             print("ECHO - {}".format(msg['type']))
             self.sendMessage(json.dumps(msg))
