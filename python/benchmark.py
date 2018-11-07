@@ -11,7 +11,7 @@ import logging
 log = logging.getLogger() # 'root' Logger
 console = logging.StreamHandler()
 timeNow = datetime.fromtimestamp(time.time()).strftime('%Y-%m-%d_%H:%M:%S')
-logFile = logging.FileHandler("/src/benchmark/darknet_bench_{}.log".format(timeNow))
+logFile = logging.FileHandler("/src/benchmark/benchmark_{}.log".format(timeNow))
 saveDir = "/src/benchmark/images/"
 
 format_str = '%(asctime)s\t%(levelname)s -- %(processName)s %(filename)s:%(lineno)s -- %(message)s'
@@ -28,24 +28,43 @@ mode = 'benchmark'
 benchmarks = {}
 imageCount = 0
 
-def startBenchmark(period,tag):
+def startAvg(period,tag):
     if tag not in benchmarks and mode == 'benchmark' :
-        print("startBenchmark {}".format(tag))
+        print("startAvg {}".format(tag))
         fps = FPS().start()
         benchmarks[tag] = fps
-        t = Timer(period, endBenchmark,[fps,tag])
-        t.start() # after 30 seconds, "hello, world" will be printed
+        t = Timer(period, endBenchmark,[tag])
+        t.start()
 
-def updateBenchmark(tag):
+def updateAvg(tag):
     # print("updateBenchmark {}".format(tag))
     if tag in benchmarks:
         benchmarks[tag].update()
 
-def endBenchmark(fps,tag):
-    print("endBenchmark {}".format(tag))
-    fps.stop()
-    log.info("{} rate: {:.2f}".format(tag,fps.fps()))
+def endAvg(tag):
+    print("endAvg {}".format(tag))
     if tag in benchmarks:
+        fps = benchmarks[tag]
+        fps.stop()
+        log.info("{} rate: {:.2f}".format(tag,fps.fps()))
+        del benchmarks[tag]
+
+def start(tag):
+    if tag not in benchmarks and mode == 'benchmark' :
+        # print("start {}".format(tag))
+        fps = FPS().start()
+        benchmarks[tag] = fps
+
+def update(tag):
+    if tag in benchmarks:
+        benchmarks[tag].update()
+
+def end(tag):
+    if tag in benchmarks:
+        # print("endBenchmark {}".format(tag))
+        fps = benchmarks[tag]
+        fps.stop()
+        log.info("{} rate: {:.2f}".format(tag,fps.fps()))
         del benchmarks[tag]
 
 def saveImage(img,label):

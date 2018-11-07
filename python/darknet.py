@@ -208,47 +208,28 @@ meta = load_meta(metaPath)
 
 def qput(robotId,videoId,frame,keyframe,targetObjects,callback):
     # print("qsize: {}".format(detectQueue.qsize()))
-    benchmark.startBenchmark(10.0,"dropframe")
+    benchmark.startAvg(10.0,"dropframe")
     if detectQueue.full():
         dropFrame = detectQueue.get()
-        benchmark.updateBenchmark("dropframe")
+        benchmark.updateAvg("dropframe")
     detectQueue.put([robotId,videoId,frame,keyframe,targetObjects,callback])
-
-# def startBenchmark(period,tag):
-#     if tag not in benchmarks and mode == 'benchmark' :
-#         print("startBenchmark {}".format(tag))
-#         fps = FPS().start()
-#         benchmarks[tag] = fps
-#         t = Timer(period, endBenchmark,[fps,tag])
-#         t.start() # after 30 seconds, "hello, world" will be printed
-
-# def updateBenchmark(tag):
-#     # print("updateBenchmark {}".format(tag))
-#     if tag in benchmarks:
-#         benchmarks[tag].update()
-
-# def endBenchmark(fps,tag):
-#     print("endBenchmark {}".format(tag))
-#     fps.stop()
-#     log.info("{} rate: {:.2f}".format(tag,fps.fps()))
-#     if tag in benchmarks:
-#         del benchmarks[tag]
 
 def consume():
     # TODO need flag to stop benchmark 
     while True:
         if not detectQueue.empty():
-            # startBenchmark(10.0,"NN-process")
-            fps = FPS().start()
+            # startAvg(10.0,"NN-process")
+            # fps = FPS().start()
+            benchmark.start("nnDetect-consume")
             robotId,videoId,frame,keyframe,targetObjects,callback = detectQueue.get()
             frame = nnDetect(robotId,videoId,frame,keyframe,targetObjects,callback)
-            fps.update()
-            fps.stop()
-            benchmark.logInfo("{} rate: {:.2f}".format("consume detect",fps.fps()))
+            benchmark.update("nnDetect-consume")
+            benchmark.end("nnDetect-consume")
+            # benchmark.logInfo("{} rate: {:.2f}".format("consume detect",fps.fps()))
             # cv2.imshow("consume", frame)
             # if cv2.waitKey(1) == ord('q'):
             #     break
-            # updateBenchmark("NN-process")
+            # updateAvg("NN-process")
 
 def classify(net, meta, im):
     out = predict_image(net, im)
