@@ -376,7 +376,7 @@ class Detector(threading.Thread):
         self.callback = callback
         self.isDisplay = True # TODO should receive args to display or not
         self.count = 0
-        self.intervalTime = 0.1
+        self.intervalTime = 0.2
         self.targetObjects = []
         self.fetchWorker = threading.Thread(target=self.fetchStream)
         self.fetchWorker.setDaemon(True)
