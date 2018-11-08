@@ -33,7 +33,7 @@ def startAvg(period,tag):
         print("startAvg {}".format(tag))
         fps = FPS().start()
         benchmarks[tag] = fps
-        t = Timer(period, endBenchmark,[tag])
+        t = Timer(period, endAvg, [tag])
         t.start()
 
 def updateAvg(tag):
