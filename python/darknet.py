@@ -206,13 +206,13 @@ meta = load_meta(metaPath)
 
 # imageCount = 0
 
-def qput(robotId,videoId,frame,keyframe,targetObjects,callback):
+def qput(detector,keyframe,frame):
     # print("qsize: {}".format(detectQueue.qsize()))
     benchmark.startAvg(10.0,"dropframe")
     if detectQueue.full():
         dropFrame = detectQueue.get()
         benchmark.updateAvg("dropframe")
-    detectQueue.put([robotId,videoId,frame,keyframe,targetObjects,callback])
+    detectQueue.put([detector,keyframe,frame])
 
 def consume():
     # TODO need flag to stop benchmark 
@@ -221,8 +221,8 @@ def consume():
             # startAvg(10.0,"NN-process")
             # fps = FPS().start()
             benchmark.start("nnDetect-consume")
-            robotId,videoId,frame,keyframe,targetObjects,callback = detectQueue.get()
-            frame = nnDetect(robotId,videoId,frame,keyframe,targetObjects,callback)
+            detector,keyframe,frame = detectQueue.get()
+            frame = nnDetect(detector,keyframe,frame)
             benchmark.update("nnDetect-consume")
             benchmark.end("nnDetect-consume")
             # benchmark.logInfo("{} rate: {:.2f}".format("consume detect",fps.fps()))
@@ -284,9 +284,8 @@ def detect(net, meta, image, thresh=.5, hier_thresh=.5, nms=.45):
     free_detections(dets, num)
     return res
 
-def nnDetect(robotId,videoId,frame,keyframe,targetObjects,callback):
-    video_serial = robotId + "-" + videoId
-    # print("nnDetect {} at keyframe {}, targetObjects {}, threshold {}".format(video_serial,keyframe,targetObjects,thresh))    
+def nnDetect(detector,keyframe,frame):
+    video_serial = detector.robotId + "-" + detector.videoId  
     classes_box_colors = [(0, 0, 255), (0, 255, 0)]  #red for palmup --> stop, green for thumbsup --> go
     classes_font_colors = [(255, 255, 0), (0, 255, 255)]
 
@@ -299,11 +298,12 @@ def nnDetect(robotId,videoId,frame,keyframe,targetObjects,callback):
     dets = get_network_boxes(net, im.w, im.h, thresh, hier_thresh, None, 0, pnum)
     num = pnum[0]
 
+    detector.sendLogMessage(keyframe,"feed_network")
     if (nms): do_nms_obj(dets, num, meta.classes, nms)
 
     for j in range(num):
         for i in range(meta.classes):
-            hasTarget = True if meta.names[i] in targetObjects or not targetObjects else False
+            hasTarget = True if meta.names[i] in detector.targetObjects or not detector.targetObjects else False
 
             if dets[j].prob[i] > 0 and hasTarget:                
                 b = dets[j].bbox
@@ -338,8 +338,8 @@ def nnDetect(robotId,videoId,frame,keyframe,targetObjects,callback):
                     dataURL = "data:image/jpeg;base64,"+base64Image # dataUrl scheme
                     msg = {
                         "type": "DETECTED",
-                        "robotId": robotId,
-                        "videoId": videoId,
+                        "robotId": detector.robotId,
+                        "videoId": detector.videoId,
                         "keyframe": keyframe,
                         "frame": {
                             "width":im.w,
@@ -355,7 +355,7 @@ def nnDetect(robotId,videoId,frame,keyframe,targetObjects,callback):
                         "prob": dets[j].prob[i],
                         "dataURL": dataURL
                     }
-                    callback(msg)
+                    detector.callback(msg)
 
     return frame
 
@@ -406,7 +406,7 @@ class Detector(threading.Thread):
                 self.sendLogMessage(self.count,"frame_read")
 
                 #self.buf[self.bufId] = frame
-                qput(self.robotId,self.videoId,frame,self.count,self.targetObjects,self.callback)
+                qput(self,self.count,frame)
                 # log.info("fetchStream {}, put {} to queue".format(self.video_serial,self.count))
                 self.count += 1
 
@@ -459,6 +459,8 @@ class Detector(threading.Thread):
     def sendLogMessage(self, keyframe, step):
         msg = {
             "type": "LOG",
+            "robotId": self.robotId,
+            "videoId": self.videoId,
             "keyframe": keyframe,
             "step": step,
             "time": datetime.now().isoformat()
