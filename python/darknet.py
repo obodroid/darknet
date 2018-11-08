@@ -40,8 +40,6 @@ sys.path.append(os.path.join(fileDir, ".."))
 # log.warn('Import darknet.py!')
 # log.critical('Going to load neural network over GPU!')
 
-mode = ''
-
 def sample(probs):
     s = sum(probs)
     probs = [a/s for a in probs]
@@ -202,12 +200,9 @@ bufferSize = 3
 
 net = load_net(configPath, weightPath, 0)
 meta = load_meta(metaPath)
-# benchmarks = {}
-
-# imageCount = 0
 
 def qput(detector,keyframe,frame):
-    # print("qsize: {}".format(detectQueue.qsize()))
+    print("qsize: {}".format(detectQueue.qsize()))
     benchmark.startAvg(10.0,"dropframe")
     if detectQueue.full():
         dropFrame = detectQueue.get()
@@ -218,18 +213,14 @@ def consume():
     # TODO need flag to stop benchmark 
     while True:
         if not detectQueue.empty():
-            # startAvg(10.0,"NN-process")
-            # fps = FPS().start()
             benchmark.start("nnDetect-consume")
             detector,keyframe,frame = detectQueue.get()
             frame = nnDetect(detector,keyframe,frame)
             benchmark.update("nnDetect-consume")
             benchmark.end("nnDetect-consume")
-            # benchmark.logInfo("{} rate: {:.2f}".format("consume detect",fps.fps()))
             # cv2.imshow("consume", frame)
             # if cv2.waitKey(1) == ord('q'):
             #     break
-            # updateAvg("NN-process")
 
 def classify(net, meta, im):
     out = predict_image(net, im)
@@ -327,7 +318,8 @@ def nnDetect(detector,keyframe,frame):
                     base64Image = base64.b64encode(jpgImage)
 
                     logMsg = "Found {} at keyframe {}: object - {}, prob - {}".format(video_serial,keyframe,meta.names[i],dets[j].prob[i])
-                    benchmark.logInfo(logMsg)   
+                    print logMsg
+
                     benchmark.saveImage(cropImage,meta.names[i]) # benchmark
                     
                     # - JSON message to send in callback
@@ -359,7 +351,7 @@ def nnDetect(detector,keyframe,frame):
 
     return frame
 
-detectQueue = Queue.Queue(maxsize=100)
+detectQueue = Queue.Queue(maxsize=10)
 detectWorker = threading.Thread(target=consume)
 detectWorker.setDaemon(True)
 detectWorker.start()
@@ -465,4 +457,5 @@ class Detector(threading.Thread):
             "step": step,
             "time": datetime.now().isoformat()
         }
-        self.callback(msg)
+        if benchmark.enable and keyframe < 100:
+            self.callback(msg)

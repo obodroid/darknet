@@ -63,7 +63,6 @@ parser.add_argument('--port', type=int, default=9000,
 args = parser.parse_args()
 
 import darknet
-darknet.mode = 'benchmark'
 
 class DarknetServerProtocol(WebSocketServerProtocol):
     def __init__(self):
@@ -80,6 +79,12 @@ class DarknetServerProtocol(WebSocketServerProtocol):
         raw = payload.decode('utf8')
         print("server raw msg - {}".format(raw))
         msg = json.loads(raw)
+
+        if msg['type'] == "SETUP":
+            if msg['debug']:
+                darknet.benchmark.enable = True
+            return
+
         robotId = msg['robotId']
         videoId = msg['videoId']
         video_serial = robotId + "-" + videoId
@@ -123,13 +128,14 @@ class DarknetServerProtocol(WebSocketServerProtocol):
         detector.setDaemon(True)
         detector.start()
         self.detectors[video_serial] = detector
-        
     
     def detectCallback(self, msg):
         self.sendMessage(json.dumps(msg))
-            
+
+
 def main(reactor):
-    log.startLogging(sys.stdout)
+    observer = log.startLogging(sys.stdout)
+    observer.timeFormat = "%Y-%m-%d %T.%f"
     factory = WebSocketServerFactory()
     factory.protocol = DarknetServerProtocol
     # ctx_factory = DefaultOpenSSLContextFactory(tls_key, tls_crt)
