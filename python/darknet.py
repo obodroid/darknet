@@ -197,12 +197,12 @@ thresh=.6
 hier_thresh=.5
 nms=.45
 bufferSize = 3
-
+maxTimeout = 10 #secs
 net = load_net(configPath, weightPath, 0)
 meta = load_meta(metaPath)
 
 def qput(detector,keyframe,frame):
-    print("qsize: {}".format(detectQueue.qsize()))
+    # print("qsize: {}".format(detectQueue.qsize()))
     benchmark.startAvg(10.0,"dropframe")
     if detectQueue.full():
         dropFrame = detectQueue.get()
@@ -389,25 +389,31 @@ class Detector(threading.Thread):
 
     def fetchStream(self):
         nextReadTime = time.clock()
+        retryCount = 0
 
         while self.video.isOpened() and self.fetchWorker.isStop is False:
             if time.clock() > nextReadTime:
                 #self.bufId = (self.bufId + 1) % bufferSize
                 res, frame = self.video.read()
+                
+                if res:
+                    self.sendLogMessage(self.count,"frame_read")
 
-                self.sendLogMessage(self.count,"frame_read")
+                    #self.buf[self.bufId] = frame
+                    qput(self,self.count,frame)
+                    # log.info("fetchStream {}, put {} to queue".format(self.video_serial,self.count))
+                    self.count += 1
 
-                #self.buf[self.bufId] = frame
-                qput(self,self.count,frame)
-                # log.info("fetchStream {}, put {} to queue".format(self.video_serial,self.count))
-                self.count += 1
-
-                nextReadTime = time.clock() + self.intervalTime
-                # cv2.imshow("fetchStream", frame)
+                    nextReadTime = time.clock() + self.intervalTime
+                    # cv2.imshow("fetchStream", frame)
             else:
                 res = self.video.grab()
 
             if not res:
+                if retryCount > self.fps*maxTimeout:
+                    self.videoStop()
+                    break
+                retryCount += 1
                 print "cannot retrieve video"
 
             cv2.waitKey(1)

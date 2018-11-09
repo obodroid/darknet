@@ -94,14 +94,12 @@ class DarknetServerProtocol(WebSocketServerProtocol):
             self.processVideo(msg)
         elif msg['type'] == "UPDATE":
             print("UPDATE - {}".format(msg['type']))
-            if video_serial in self.detectors :
+            if video_serial in self.detectors:
                 self.detectors[video_serial].updateTarget(msg['targetObjects'])
         elif msg['type'] == "STOP":
             print("STOP - {}".format(video_serial))
-            if video_serial in self.detectors :
-                self.detectors[video_serial].stopStream()
-                self.detectors[video_serial].join()
-                del self.detectors[video_serial]
+            if video_serial in self.detectors:
+                self.removeDetector(video_serial)
         elif msg['type'] == "ECHO":
             print("ECHO - {}".format(msg['type']))
             self.sendMessage(json.dumps(msg))
@@ -109,6 +107,8 @@ class DarknetServerProtocol(WebSocketServerProtocol):
             print("Warning: Unknown message type: {}".format(msg['type']))
 
     def onClose(self, wasClean, code, reason):
+        for video_serial in self.detectors.keys():
+            self.removeDetector(video_serial)
         print("WebSocket connection closed: {0}".format(reason))
 
     def processVideo(self, msg):
@@ -120,17 +120,23 @@ class DarknetServerProtocol(WebSocketServerProtocol):
         threshold = msg['threshold']
         video_serial = robotId + "-" + videoId
 
-        if video_serial in self.detectors :
+        if video_serial in self.detectors:
             print("{} - video is already process".format(video_serial))
             return
-
-        detector = darknet.Detector(robotId,videoId,stream,threshold,self.detectCallback)
+        print("processVideo processVideo processVideo {}".format(video_serial))
+        detector = darknet.Detector(
+            robotId, videoId, stream, threshold, self.detectCallback)
         detector.setDaemon(True)
         detector.start()
         self.detectors[video_serial] = detector
-    
+
     def detectCallback(self, msg):
         self.sendMessage(json.dumps(msg))
+    
+    def removeDetector(self,video_serial):
+        self.detectors[video_serial].stopStream()
+        self.detectors[video_serial].join()
+        del self.detectors[video_serial]
 
 
 def main(reactor):
@@ -143,7 +149,6 @@ def main(reactor):
     reactor.listenTCP(args.port, factory)
     reactor.run()
     return Deferred()
-
 
 if __name__ == '__main__':
     task.react(main)
