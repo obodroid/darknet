@@ -297,6 +297,8 @@ def nnDetect(detector,keyframe,frame):
     dets = get_network_boxes(net, im.w, im.h, thresh, hier_thresh, None, 0, pnum)
     num = pnum[0]
     foundObject = False
+    filename = '{}_{}.jpg'.format(video_serial,keyframe)
+    filepath = '{}/{}'.format(fullImageDir,filename)
 
     detector.sendLogMessage(keyframe,"feed_network")
 
@@ -356,14 +358,12 @@ def nnDetect(detector,keyframe,frame):
                         },
                         "objectType": meta.names[i],
                         "prob": dets[j].prob[i],
-                        "dataURL": dataURL
+                        "dataURL": dataURL,
                     }
                     foundObject = True
                     detector.callback(msg)
         
     if isNeedSaveImage and foundObject
-        filename = '{}_{}.jpg'.format(video_serial,keyframe)
-        filepath = '{}/{}'.format(fullImageDir,filename)
         cv2.imwrite(filepath,frame)
 
     return frame
