@@ -200,6 +200,14 @@ bufferSize = 3
 maxTimeout = 10 #secs
 net = load_net(configPath, weightPath, 0)
 meta = load_meta(metaPath)
+isNeedSaveImage = True
+fullImageDir = "/tmp/.robot-app/full_images"
+
+if isNeedSaveImage and not os.path.exists(fullImageDir):
+    try:
+        os.makedirs(fullImageDir)
+    except OSError as exc: # Guard against race condition
+        print "OSError:cannot make directory."
 
 def qput(detector,keyframe,frame):
     # print("qsize: {}".format(detectQueue.qsize()))
@@ -288,8 +296,12 @@ def nnDetect(detector,keyframe,frame):
     predict_image(net, im)
     dets = get_network_boxes(net, im.w, im.h, thresh, hier_thresh, None, 0, pnum)
     num = pnum[0]
+    foundObject = False
+    filename = '{}_{}.jpg'.format(video_serial,keyframe)
+    filepath = '{}/{}'.format(fullImageDir,filename)
 
     detector.sendLogMessage(keyframe,"feed_network")
+
     if (nms): do_nms_obj(dets, num, meta.classes, nms)
 
     for j in range(num):
@@ -308,8 +320,9 @@ def nnDetect(detector,keyframe,frame):
                 x2 = x2 if x2 <= im.w else im.w
                 y2 = y2 if y2 <= im.h else im.h
                 
-                cv2.rectangle(frame, (x1, y1), (x2, y2), classes_box_colors[1], 2)
-                cv2.putText(frame, meta.names[i], (x1, y1 - 20), 1, 1, classes_font_colors[0], 2, cv2.LINE_AA)
+                # if need to show rectangular bounding box and text, you can uncomment here
+                # cv2.rectangle(frame, (x1, y1), (x2, y2), classes_box_colors[1], 2)
+                # cv2.putText(frame, meta.names[i], (x1, y1 - 20), 1, 1, classes_font_colors[0], 2, cv2.LINE_AA)
 
                 cropImage = frame[y1:y2, x1:x2]
                 height, width, channels = cropImage.shape
@@ -327,7 +340,7 @@ def nnDetect(detector,keyframe,frame):
                     # - keyframe.toString().padStart(8, 0)
                     # - targetObject and const wrapType = detectedObject.type.replace(' ', '_');
                     # - Prob threshold or detectedObject.percentage.slice(0, -1) > AI.default.threshold
-                    dataURL = "data:image/jpeg;base64,"+base64Image # dataUrl scheme
+                    dataURL = "data:image/jpeg;base64," + base64Image # dataUrl scheme
                     msg = {
                         "type": "DETECTED",
                         "robotId": detector.robotId,
@@ -345,9 +358,13 @@ def nnDetect(detector,keyframe,frame):
                         },
                         "objectType": meta.names[i],
                         "prob": dets[j].prob[i],
-                        "dataURL": dataURL
+                        "dataURL": dataURL,
                     }
+                    foundObject = True
                     detector.callback(msg)
+        
+    if isNeedSaveImage and foundObject
+        cv2.imwrite(filepath,frame)
 
     return frame
 
