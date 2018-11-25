@@ -203,11 +203,17 @@ meta = load_meta(metaPath)
 isNeedSaveImage = True
 fullImageDir = "/tmp/.robot-app/full_images"
 
-if isNeedSaveImage and not os.path.exists(fullImageDir):
-    try:
-        os.makedirs(fullImageDir)
-    except OSError as exc: # Guard against race condition
-        print "OSError:cannot make directory."
+def initSaveImage():
+    if isNeedSaveImage:
+        if not os.path.exists(fullImageDir):
+            try:
+                os.makedirs(fullImageDir)
+            except OSError as exc: # Guard against race condition
+                print "OSError:cannot make directory."
+        else:
+            fileList = os.listdir(fullImageDir)
+            for fileName in fileList:
+                os.remove(fullImageDir+"/"+fileName)
 
 def qput(detector,keyframe,frame):
     # print("qsize: {}".format(detectQueue.qsize()))
@@ -362,12 +368,18 @@ def nnDetect(detector,keyframe,frame):
                     }
                     foundObject = True
                     detector.callback(msg)
-        
-    if isNeedSaveImage and foundObject
-        cv2.imwrite(filepath,frame)
+    
+    if isNeedSaveImage and foundObject:
+        t = threading.Thread(target=saveImage,args=(filepath,frame))
+        t.start()
+        t.join()
 
     return frame
 
+def saveImage(filepath,frame):
+    cv2.imwrite(filepath,frame)
+
+initSaveImage()
 detectQueue = Queue.Queue(maxsize=10)
 detectWorker = threading.Thread(target=consume)
 detectWorker.setDaemon(True)
