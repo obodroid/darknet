@@ -414,7 +414,7 @@ class Detector(threading.Thread):
                     self.videoStop()
                     break
                 retryCount += 1
-                print "cannot retrieve video"
+                print ("cannot retrieve video - " + self.video_serial)
 
             cv2.waitKey(1)
         
