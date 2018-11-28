@@ -434,16 +434,19 @@ class Detector(threading.Thread):
                     self.count += 1
 
                     nextReadTime = time.clock() + self.intervalTime
-                    # cv2.imshow("fetchStream", frame)
+                    cv2.imshow("video " + self.video_serial, frame)
             else:
+                print("video grab")
                 res = self.video.grab()
 
             if not res:
-                if retryCount > self.fps*maxTimeout:
+                if retryCount > self.fps * maxTimeout:
                     self.videoStop()
                     break
                 retryCount += 1
                 print ("cannot retrieve video - " + self.video_serial)
+            else:
+                retryCount = 0
 
             cv2.waitKey(1)
         
@@ -461,7 +464,7 @@ class Detector(threading.Thread):
 
     def processStream(self):
         self.video = cv2.VideoCapture(self.stream)
-        self.video.set(cv2.CAP_PROP_BUFFERSIZE,10)
+        self.video.set(cv2.CAP_PROP_BUFFERSIZE, 1)
         self.fps = self.video.get(cv2.CAP_PROP_FPS)
         print("run VideoCapture isOpen - {}, fps - {}".format(self.video.isOpened(),self.fps))    
         self.fetchWorker.start()
