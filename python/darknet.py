@@ -421,23 +421,20 @@ class Detector(threading.Thread):
         retryCount = 0
 
         while self.video.isOpened() and self.fetchWorker.isStop is False:
+            print("video grab: start")
+            res = self.video.grab()
+            print("video grab: end")
+
             if time.clock() > nextReadTime:
-                #self.bufId = (self.bufId + 1) % bufferSize
-                res, frame = self.video.read()
+                res, frame = self.video.retrieve()
                 
                 if res:
-                    self.sendLogMessage(self.count,"frame_read")
-
-                    #self.buf[self.bufId] = frame
+                    self.sendLogMessage(self.count, "frame_read")
                     qput(self,self.count,frame)
-                    # log.info("fetchStream {}, put {} to queue".format(self.video_serial,self.count))
                     self.count += 1
 
                     nextReadTime = time.clock() + self.intervalTime
                     cv2.imshow("video " + self.video_serial, frame)
-            else:
-                print("video grab")
-                res = self.video.grab()
 
             if not res:
                 if retryCount > self.fps * maxTimeout:
