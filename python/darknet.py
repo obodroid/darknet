@@ -412,94 +412,46 @@ class Detector(threading.Thread):
         self.video_serial=robotId + "-" + videoId
         self.callback=callback
         self.isDisplay=True  # TODO should receive args to display or not
-        self.count=0
         self.intervalTime=0.2
         self.targetObjects=[]
-        # self.fetchWorker = threading.Thread(target=self.fetchStream)
-        # self.fetchWorker.setDaemon(True)
-        # self.fetchWorker.isStop = False
         threading.Thread.__init__(self)
         print ("Detector Inited - ", self.video_serial)
 
     def run(self):
         self.processStream()
 
-    # def fetchStream(self):
-    #     nextReadTime = time.clock()
-    #     retryCount = 0
-
-    #     while self.video.isOpened() and self.fetchWorker.isStop is False:
-    #         print("video grab: start")
-    #         res = self.video.grab()
-    #         print("video grab: end")
-
-    #         if time.clock() > nextReadTime:
-    #             res, frame = self.video.retrieve()
-
-    #             if res:
-    #                 self.sendLogMessage(self.count, "frame_read")
-    #                 qput(self,self.count,frame)
-    #                 self.count += 1
-
-    #                 nextReadTime = time.clock() + self.intervalTime
-    #                 cv2.imshow("video " + self.video_serial, frame)
-
-    #         if not res:
-    #             if retryCount > self.fps * maxTimeout:
-    #                 self.videoStop()
-    #                 break
-    #             retryCount += 1
-    #             print ("cannot retrieve video - " + self.video_serial)
-    #         else:
-    #             retryCount = 0
-
-    #         cv2.waitKey(1)
-
-    #     if self.video.isOpened():
-    #         self.videoStop()
-
     def processStream(self):
         # stream = "rtsp://admin:Obodroid@192.168.1.64"
         fps=FPS().start()
         streamVideo=StreamVideo(self.stream).start()
+        displayScreen = "video : {}".format(self.video_serial)
+        print("main thread processStream video {}.".format(self.video_serial))
         while self.isStop is False:
             # grab the frame from the threaded video file stream, resize
             # it, and convert it to grayscale (while still retaining 3
             # channels)
-            frame=streamVideo.read()
-
+            keyframe,frame = streamVideo.read()
+            
             if frame is None:
                 continue
 
             # add to neural network detection queue
-            qput(self, self.count, frame)
-            self.count += 1
+            qput(self, keyframe, frame)
+            print("process video {} at keyframe {}".format(self.video_serial,keyframe))
+            fps.update()
 
             # display the size of the queue on the frame
             if self.isDisplay:
-                cv2.putText(frame, "FPS: {}, Queue Size: {}".format(fps.fps(), streamVideo.Q.qsize()),
-                    (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
+                print("display - {}".format(keyframe))
                 # show the frame and update the FPS counter
-                cv2.imshow("Frame", frame)
+                cv2.imshow(displayScreen, frame)
 
-            # Wait to press 'q' key for capturing
-            if cv2.waitKey(1) & 0xFF == ord('q'):
-                # Set the image name to the date it was captured
-                # imageName = str(time.strftime("%Y_%m_%d_%H_%M")) + '.jpg'
-                # Save the image
-                # cv2.imwrite(imageName, rgbImage)
+            if cv2.waitKey(1):
                 break
-            fps.update()
-
+        print("main thread for video {} stop.".format(self.video_serial))
+        cv2.destroyWindow(displayScreen)
         fps.stop()
         streamVideo.stop()
-
-        # self.video = cv2.VideoCapture(self.stream)
-        # self.video.set(cv2.CAP_PROP_BUFFERSIZE, 1)
-        # self.fps = self.video.get(cv2.CAP_PROP_FPS)
-        # print("run VideoCapture isOpen - {}, fps - {}".format(self.video.isOpened(),self.fps))
-        # self.fetchWorker.start()
-        # self.fetchWorker.join()
 
     def stopStream(self):
         self.isStop=True
