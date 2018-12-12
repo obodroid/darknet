@@ -28,11 +28,12 @@ class StreamVideo:
 		# initialize the queue used to store frames read from
 		# the video file
 		self.Q = Queue.Queue(maxsize=queueSize)
+		self.fetchWorker = threading.Thread(target=self.update, args=())
+		self.fetchWorker.isDaemon = True
+
 	def start(self):
         # start a thread to read frames from the file video stream
-		t = threading.Thread(target=self.update, args=())
-		t.daemon = True
-		t.start()
+		self.fetchWorker.start()
 		return self
 	
 	def update(self):
