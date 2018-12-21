@@ -404,35 +404,40 @@ detectWorker.start()
 class Detector(threading.Thread):
     def __init__(self, robotId, videoId, stream, threshold, callback):
         # TODO handle irregular case, end of stream
+        
         self.threshold=threshold
         self.robotId=robotId
         self.videoId=videoId
         self.stream=stream
         self.video_serial=robotId + "-" + videoId
         self.callback=callback
-        self.isDisplay=True  # TODO should receive args to display or not
+        self.isDisplay=False  # TODO should receive args to display or not
         self.intervalTime=0.2
         self.targetObjects=[]
+        self.isStop = False
+        
+        # self.processWorker = threading.Thread(target=self.doProcessing, args=())
+        # self.processWorker.setDaemon(True)
+        # self.processWorker.isStop = False
+
         threading.Thread.__init__(self)
-        print ("Detector Inited - ", self.video_serial)
-        self.processWorker = threading.Thread(target=self.doProcessing, args=())
-        self.processWorker.isDaemon = True
-        self.processWorker.isStop = False
+        print ("Detector Inited - {}".format(self.video_serial))
 
     def run(self):
-        self.processStream()
+        # self.processStream()
+        self.doProcessing()
 
-    def processStream(self):
-        print("main thread processStream video {}.".format(self.video_serial))
-        self.processWorker.start()
-        self.processWorker.join()     
-        print("main thread for video {} stop.".format(self.video_serial))
+    # def processStream(self):
+        # print("main thread processStream video {}.".format(self.video_serial))
+        # self.processWorker.start()
+        # self.processWorker.join()     
+        # print("main thread for video {} stop.".format(self.video_serial))
         
     def doProcessing(self):
         fps=FPS().start()
         streamVideo=StreamVideo(self.stream).start()
         displayScreen = "video : {}".format(self.video_serial)
-        while self.processWorker.isStop is False:
+        while self.isStop is False:
             # grab the frame from the threaded video file stream, resize
             # it, and convert it to grayscale (while still retaining 3
             # channels)
@@ -448,7 +453,7 @@ class Detector(threading.Thread):
 
             # display the size of the queue on the frame
             if self.isDisplay:
-                print("display - {} self.processWorker.isStop - {}".format(keyframe,self.processWorker.isStop))
+                print("display - {} self.isStop - {}".format(keyframe,self.isStop))
                 # show the frame and update the FPS counter
                 cv2.imshow(displayScreen, frame)
 
@@ -458,9 +463,9 @@ class Detector(threading.Thread):
         cv2.destroyAllWindows()
 
     def stopStream(self):
-        self.processWorker.isStop = True
-        print("stopStream self.processWorker.isStop : {} , {} ".format(
-            self.video_serial, self.processWorker.isStop))
+        self.isStop = True
+        print("stopStream self.isStop : {} , {} ".format(
+            self.video_serial, self.isStop))
 
     def updateTarget(self, targetObjects):
         print("new targetObjects - {}".format(targetObjects))
