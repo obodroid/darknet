@@ -436,6 +436,7 @@ class Detector(threading.Thread):
     def doProcessing(self):
         fps=FPS().start()
         streamVideo=StreamVideo(self.stream).start()
+        self.videoCaptureReady()
         displayScreen = "video : {}".format(self.video_serial)
         while self.isStop is False:
             # grab the frame from the threaded video file stream, resize
@@ -470,6 +471,14 @@ class Detector(threading.Thread):
     def updateTarget(self, targetObjects):
         print("new targetObjects - {}".format(targetObjects))
         self.targetObjects=targetObjects
+
+    def videoCaptureReady(self):
+        msg={
+            "type": "READY",
+            "robotId": self.robotId,
+            "videoId": self.videoId,
+        }
+        self.callback(msg)
 
     def videoStop(self):
         msg={

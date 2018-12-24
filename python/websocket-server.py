@@ -103,6 +103,9 @@ class DarknetServerProtocol(WebSocketServerProtocol):
         elif msg['type'] == "ECHO":
             print("ECHO - {}".format(msg['type']))
             self.sendMessage(json.dumps(msg))
+        elif msg['type'] == "READY":
+            print("READY - {}".format(msg['type']))
+            self.sendMessage(json.dumps(msg))
         else:
             print("Warning: Unknown message type: {}".format(msg['type']))
 
