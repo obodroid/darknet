@@ -415,23 +415,12 @@ class Detector(threading.Thread):
         self.intervalTime=0.2
         self.targetObjects=[]
         self.isStop = False
-        
-        # self.processWorker = threading.Thread(target=self.doProcessing, args=())
-        # self.processWorker.setDaemon(True)
-        # self.processWorker.isStop = False
 
         threading.Thread.__init__(self)
         print ("Detector Inited - {}".format(self.video_serial))
 
     def run(self):
-        # self.processStream()
         self.doProcessing()
-
-    # def processStream(self):
-        # print("main thread processStream video {}.".format(self.video_serial))
-        # self.processWorker.start()
-        # self.processWorker.join()     
-        # print("main thread for video {} stop.".format(self.video_serial))
         
     def doProcessing(self):
         fps=FPS().start()
@@ -465,7 +454,7 @@ class Detector(threading.Thread):
 
     def stopStream(self):
         self.isStop = True
-        print("stopStream self.isStop : {} , {} ".format(
+        print("stopStream self.isStop : {}, {} ".format(
             self.video_serial, self.isStop))
 
     def updateTarget(self, targetObjects):

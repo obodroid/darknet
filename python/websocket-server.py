@@ -90,10 +90,10 @@ class DarknetServerProtocol(WebSocketServerProtocol):
         video_serial = robotId + "-" + videoId
 
         if msg['type'] == "START":
-            print("START - {}".format(msg['type']))
+            print("START - {}".format(video_serial))
             self.processVideo(msg)
         elif msg['type'] == "UPDATE":
-            print("UPDATE - {}".format(msg['type']))
+            print("UPDATE - {}".format(video_serial))
             if video_serial in self.detectors:
                 self.detectors[video_serial].updateTarget(msg['targetObjects'])
         elif msg['type'] == "STOP":
@@ -101,10 +101,10 @@ class DarknetServerProtocol(WebSocketServerProtocol):
             if video_serial in self.detectors:
                 self.removeDetector(video_serial)
         elif msg['type'] == "ECHO":
-            print("ECHO - {}".format(msg['type']))
+            print("ECHO - {}".format(video_serial))
             self.sendMessage(json.dumps(msg))
         elif msg['type'] == "READY":
-            print("READY - {}".format(msg['type']))
+            print("READY - {}".format(video_serial))
             self.sendMessage(json.dumps(msg))
         else:
             print("Warning: Unknown message type: {}".format(msg['type']))

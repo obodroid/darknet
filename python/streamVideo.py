@@ -50,7 +50,7 @@ class StreamVideo:
 			if self.Q.full():
 				self.dropCount += 1
 				dropFrame = self.Q.get()
-				print("drop frame {} / {}".format(self.keyframe, self.dropCount))
+				print("drop frame {} / drop count {}".format(self.keyframe, self.dropCount))
 
 			# read the next frame from the file
 			(grabbed, frame) = self.stream.read()
