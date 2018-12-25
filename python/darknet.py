@@ -248,9 +248,7 @@ def consume():
             frame = nnDetect(detector, keyframe, frame)
             benchmark.update("nnDetect-consume")
             benchmark.end("nnDetect-consume")
-            # cv2.imshow("consume", frame)
-            # if cv2.waitKey(1) == ord('q'):
-            #     break
+        cv2.waitKey(1)
 
 
 def classify(net, meta, im):
