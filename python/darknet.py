@@ -228,7 +228,6 @@ def qput(detector, keyframe, frame):
         benchmark.updateAvg("dropframe")
     detectQueue.put([detector, keyframe, frame])
 
-
 def consume():
     # TODO need flag to stop benchmark
     while True:
@@ -240,7 +239,6 @@ def consume():
             benchmark.end("nnDetect-consume")
         cv2.waitKey(1)
 
-
 def classify(net, meta, im):
     out = predict_image(net, im)
     res = []
@@ -248,7 +246,6 @@ def classify(net, meta, im):
         res.append((meta.names[i], out[i]))
     res = sorted(res, key=lambda x: -x[1])
     return res
-
 
 def array_to_image(arr):
     # need to return old values to avoid python freeing memory
@@ -258,7 +255,6 @@ def array_to_image(arr):
     data = arr.ctypes.data_as(POINTER(c_float))
     im = IMAGE(w, h, c, data)
     return im, arr
-
 
 def detect(net, meta, image, thresh=.5, hier_thresh=.5, nms=.45):
     """if isinstance(image, bytes):
@@ -297,7 +293,6 @@ def detect(net, meta, image, thresh=.5, hier_thresh=.5, nms=.45):
         free_image(im)
     free_detections(dets, num)
     return res
-
 
 def nnDetect(detector, keyframe, frame):
     video_serial = detector.robotId + "-" + detector.videoId
@@ -382,6 +377,10 @@ def nnDetect(detector, keyframe, frame):
                     }
                     foundObject = True
                     detector.callback(msg)
+    
+    if isinstance(arr, bytes):
+        free_image(im)
+    free_detections(dets, num)
 
     if isNeedSaveImage and foundObject:
         t = threading.Thread(target=saveImage, args=(filepath, frame))
@@ -390,10 +389,8 @@ def nnDetect(detector, keyframe, frame):
 
     return frame
 
-
 def saveImage(filepath, frame):
     cv2.imwrite(filepath, frame)
-
 
 def initSaveImage():
         if isNeedSaveImage:
