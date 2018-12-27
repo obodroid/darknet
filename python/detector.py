@@ -46,7 +46,6 @@ import darknet
 class Detector(threading.Thread):
     def __init__(self, robotId, videoId, stream, threshold, callback):
         # TODO handle irregular case, end of stream
-
         self.threshold = threshold
         self.robotId = robotId
         self.videoId = videoId
@@ -79,7 +78,7 @@ class Detector(threading.Thread):
                 continue
 
             # add to neural network detection queue
-            darknet.qput(self, keyframe, frame)
+            darknet.putLoad(self, keyframe, frame)
             print("process video {} at keyframe {}".format(
                 self.video_serial, keyframe))
             fps.update()
