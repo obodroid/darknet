@@ -216,18 +216,8 @@ meta = load_meta(metaPath)
 isNeedSaveImage = True
 fullImageDir = "/tmp/.robot-app/full_images"
 
-
-def initSaveImage():
-    if isNeedSaveImage:
-        if not os.path.exists(fullImageDir):
-            try:
-                os.makedirs(fullImageDir)
-            except OSError as exc:  # Guard against race condition
-                print("OSError:cannot make directory.")
-        else:
-            fileList = os.listdir(fullImageDir)
-            for fileName in fileList:
-                os.remove(fullImageDir+"/"+fileName)
+# class Darknet():
+#     def __init__(self):
 
 
 def qput(detector, keyframe, frame):
@@ -287,7 +277,7 @@ def detect(net, meta, image, thresh=.5, hier_thresh=.5, nms=.45):
     pnum = pointer(num)
     predict_image(net, im)
     dets = get_network_boxes(net, im.w, im.h, thresh,
-                             hier_thresh, None, 0, pnum)
+                            hier_thresh, None, 0, pnum)
     num = pnum[0]
     if nms:
         do_nms_obj(dets, num, meta.classes, nms)
@@ -322,7 +312,7 @@ def nnDetect(detector, keyframe, frame):
     pnum = pointer(num)
     predict_image(net, im)
     dets = get_network_boxes(net, im.w, im.h, thresh,
-                             hier_thresh, None, 0, pnum)
+                            hier_thresh, None, 0, pnum)
     num = pnum[0]
     foundObject = False
     filename = '{}_{}.jpg'.format(video_serial, keyframe)
@@ -405,98 +395,21 @@ def saveImage(filepath, frame):
     cv2.imwrite(filepath, frame)
 
 
+def initSaveImage():
+        if isNeedSaveImage:
+            if not os.path.exists(fullImageDir):
+                try:
+                    os.makedirs(fullImageDir)
+                except OSError as exc:  # Guard against race condition
+                    print("OSError:cannot make directory.")
+            else:
+                fileList = os.listdir(fullImageDir)
+                for fileName in fileList:
+                    os.remove(fullImageDir+"/"+fileName)
+
 initSaveImage()
 detectQueue = Queue.Queue(maxsize=10)
 detectWorker = threading.Thread(target=consume)
 detectWorker.setDaemon(True)
 detectWorker.start()
 
-
-class Detector(threading.Thread):
-    def __init__(self, robotId, videoId, stream, threshold, callback):
-        # TODO handle irregular case, end of stream
-
-        self.threshold = threshold
-        self.robotId = robotId
-        self.videoId = videoId
-        self.stream = stream
-        self.video_serial = robotId + "-" + videoId
-        self.callback = callback
-        self.isDisplay = False  # TODO should receive args to display or not
-        self.intervalTime = 0.2
-        self.targetObjects = []
-        self.isStop = False
-
-        threading.Thread.__init__(self)
-        print ("Detector Inited - {}".format(self.video_serial))
-
-    def run(self):
-        self.doProcessing()
-
-    def doProcessing(self):
-        fps = FPS().start()
-        streamVideo = StreamVideo(self.stream).start()
-        self.videoCaptureReady()
-        displayScreen = "video : {}".format(self.video_serial)
-        while self.isStop is False:
-            # grab the frame from the threaded video file stream, resize
-            # it, and convert it to grayscale (while still retaining 3
-            # channels)
-            keyframe, frame = streamVideo.read()
-
-            if frame is None:
-                continue
-
-            # add to neural network detection queue
-            qput(self, keyframe, frame)
-            print("process video {} at keyframe {}".format(
-                self.video_serial, keyframe))
-            fps.update()
-
-            # display the size of the queue on the frame
-            if self.isDisplay:
-                print("display - {} self.isStop - {}".format(keyframe, self.isStop))
-                # show the frame and update the FPS counter
-                cv2.imshow(displayScreen, frame)
-
-            cv2.waitKey(1)
-        fps.stop()
-        streamVideo.stop()
-        cv2.destroyAllWindows()
-
-    def stopStream(self):
-        self.isStop = True
-        print("stopStream self.isStop : {}, {} ".format(
-            self.video_serial, self.isStop))
-
-    def updateTarget(self, targetObjects):
-        print("new targetObjects - {}".format(targetObjects))
-        self.targetObjects = targetObjects
-
-    def videoCaptureReady(self):
-        msg = {
-            "type": "READY",
-            "robotId": self.robotId,
-            "videoId": self.videoId,
-        }
-        self.callback(msg)
-
-    def videoStop(self):
-        msg = {
-            "type": "STOP",
-            "robotId": self.robotId,
-            "videoId": self.videoId,
-        }
-        self.callback(msg)
-
-    def sendLogMessage(self, keyframe, step):
-        msg = {
-            "type": "LOG",
-            "robotId": self.robotId,
-            "videoId": self.videoId,
-            "keyframe": keyframe,
-            "step": step,
-            "time": datetime.now().isoformat()
-        }
-        if benchmark.enable and keyframe < 100:
-            self.callback(msg)

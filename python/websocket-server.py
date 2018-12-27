@@ -63,6 +63,7 @@ parser.add_argument('--port', type=int, default=9000,
 args = parser.parse_args()
 
 import darknet
+import detector
 
 class DarknetServerProtocol(WebSocketServerProtocol):
     def __init__(self):
@@ -127,11 +128,11 @@ class DarknetServerProtocol(WebSocketServerProtocol):
             print("{} - video is already process".format(video_serial))
             return
         print("processVideo processVideo processVideo {}".format(video_serial))
-        detector = darknet.Detector(
+        detectorWorker = detector.Detector(
             robotId, videoId, stream, threshold, self.detectCallback)
-        detector.setDaemon(True)
-        detector.start()
-        self.detectors[video_serial] = detector
+        detectorWorker.setDaemon(True)
+        detectorWorker.start()
+        self.detectors[video_serial] = detectorWorker
 
     def detectCallback(self, msg):
         self.sendMessage(json.dumps(msg))
