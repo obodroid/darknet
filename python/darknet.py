@@ -20,7 +20,6 @@ import time
 import base64
 import Queue
 import logging
-from streamVideo import StreamVideo
 import benchmark
 
 fileDir = os.path.dirname(os.path.realpath(__file__))

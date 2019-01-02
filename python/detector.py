@@ -61,38 +61,39 @@ class Detector(threading.Thread):
         print ("Detector Initialized - {}".format(self.video_serial))
 
     def run(self):
-        self.doProcessing()
+        streamVideo = StreamVideo(self.stream)
+        
+        if streamVideo.stopped is False:
+            fps = FPS().start()
+            self.videoCaptureReady()
 
-    def doProcessing(self):
-        fps = FPS().start()
-        streamVideo = StreamVideo(self.stream).start()
-        self.videoCaptureReady()
-        displayScreen = "video : {}".format(self.video_serial)
-        while self.isStop is False:
-            # grab the frame from the threaded video file stream, resize
-            # it, and convert it to grayscale (while still retaining 3
-            # channels)
-            keyframe, frame = streamVideo.read()
+            while self.isStop is False:
+                # grab the frame from the threaded video file stream, resize
+                # it, and convert it to grayscale (while still retaining 3
+                # channels)
+                keyframe, frame = streamVideo.read()
 
-            if frame is None:
-                continue
+                if frame is None:
+                    continue
 
-            # add to neural network detection queue
-            darknet.putLoad(self, keyframe, frame)
-            print("process video {} at keyframe {}".format(
-                self.video_serial, keyframe))
-            fps.update()
+                # add to neural network detection queue
+                darknet.putLoad(self, keyframe, frame)
+                print("process video {} at keyframe {}".format(
+                    self.video_serial, keyframe))
+                fps.update()
 
-            # display the size of the queue on the frame
-            if self.isDisplay:
-                print("display - {} self.isStop - {}".format(keyframe, self.isStop))
-                # show the frame and update the FPS counter
-                cv2.imshow(displayScreen, frame)
+                # display the size of the queue on the frame
+                if self.isDisplay:
+                    print("display - {} self.isStop - {}".format(keyframe, self.isStop))
+                    # show the frame and update the FPS counter
+                    displayScreen = "video : {}".format(self.video_serial)
+                    cv2.imshow(displayScreen, frame)
 
-            cv2.waitKey(1)
-        fps.stop()
-        streamVideo.stop()
-        cv2.destroyAllWindows()
+                cv2.waitKey(1)
+
+            fps.stop()
+            streamVideo.stop()
+            cv2.destroyAllWindows()
 
     def stopStream(self):
         self.isStop = True

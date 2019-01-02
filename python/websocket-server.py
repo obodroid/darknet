@@ -116,8 +116,6 @@ class DarknetServerProtocol(WebSocketServerProtocol):
         print("WebSocket connection closed: {0}".format(reason))
 
     def processVideo(self, msg):
-        print("processVideo - {}".format(json.dumps(msg)))
-
         robotId = msg['robotId']
         videoId = msg['videoId']
         stream = msg['stream']
@@ -127,7 +125,8 @@ class DarknetServerProtocol(WebSocketServerProtocol):
         if video_serial in self.detectors:
             print("{} - video is already process".format(video_serial))
             return
-        print("processVideo processVideo processVideo {}".format(video_serial))
+
+        print("processVideo {}".format(video_serial))
         detectorWorker = detector.Detector(
             robotId, videoId, stream, threshold, self.detectCallback)
         detectorWorker.setDaemon(True)
