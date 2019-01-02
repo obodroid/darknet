@@ -58,7 +58,7 @@ class Detector(threading.Thread):
         self.isStop = False
 
         threading.Thread.__init__(self)
-        print ("Detector Inited - {}".format(self.video_serial))
+        print ("Detector Initialized - {}".format(self.video_serial))
 
     def run(self):
         self.doProcessing()
