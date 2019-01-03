@@ -134,7 +134,7 @@ class DarknetServerProtocol(WebSocketServerProtocol):
         self.detectors[video_serial] = detectorWorker
 
     def detectCallback(self, msg):
-        self.sendMessage(json.dumps(msg))
+        self.sendMessage(json.dumps(msg), sync=True)
     
     def removeDetector(self,video_serial):
         self.detectors[video_serial].stopStream()
@@ -146,6 +146,7 @@ def main(reactor):
     observer = log.startLogging(sys.stdout)
     observer.timeFormat = "%Y-%m-%d %T.%f"
     factory = WebSocketServerFactory()
+    factory.setProtocolOptions(autoPingInterval=1)
     factory.protocol = DarknetServerProtocol
     # ctx_factory = DefaultOpenSSLContextFactory(tls_key, tls_crt)
     # reactor.listenSSL(args.port, factory, ctx_factory)
