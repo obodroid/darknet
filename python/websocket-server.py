@@ -146,7 +146,7 @@ def main(reactor):
     observer = log.startLogging(sys.stdout)
     observer.timeFormat = "%Y-%m-%d %T.%f"
     factory = WebSocketServerFactory()
-    factory.setProtocolOptions(autoPingInterval=1)
+    factory.setProtocolOptions(autoPingInterval=1, autoPingTimeout=1)
     factory.protocol = DarknetServerProtocol
     # ctx_factory = DefaultOpenSSLContextFactory(tls_key, tls_crt)
     # reactor.listenSSL(args.port, factory, ctx_factory)
