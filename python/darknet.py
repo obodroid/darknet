@@ -224,10 +224,12 @@ class Darknet():
         self.detectWorker.start()
 
     def qput(self, detector, keyframe, frame):
-        # print("qsize: {}".format(detectQueue.qsize()))
+        print("detectQueue qsize: {}".format(self.detectQueue.qsize()))
         benchmark.startAvg(10.0, "dropframe")
         if self.detectQueue.full():
-            dropFrame = self.detectQueue.get()
+            dropDetector, dropKeyframe, dropFrame = self.detectQueue.get()
+            video_serial = dropDetector.robotId + "-" + dropDetector.videoId
+            print("darknet drop frame {}, keyframe {}".format(video_serial, keyframe))
             benchmark.updateAvg("dropframe")
         self.detectQueue.put([detector, keyframe, frame])
 
@@ -292,9 +294,11 @@ class Darknet():
 
     def nnDetect(self, detector, keyframe, frame):
         video_serial = detector.robotId + "-" + detector.videoId
+        print("darknet nnDetect {}, keyframe {}".format(video_serial, keyframe))
+
         # red for palmup --> stop, green for thumbsup --> go
-        classes_box_colors = [(0, 0, 255), (0, 255, 0)]
-        classes_font_colors = [(255, 255, 0), (0, 255, 255)]
+        # classes_box_colors = [(0, 0, 255), (0, 255, 0)]
+        # classes_font_colors = [(255, 255, 0), (0, 255, 255)]
 
         rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         im, arr = array_to_image(rgb_frame)

@@ -61,7 +61,7 @@ class Detector(threading.Thread):
         print ("Detector Initialized - {}".format(self.video_serial))
 
     def run(self):
-        streamVideo = StreamVideo(self.stream)
+        streamVideo = StreamVideo(self.stream, self.video_serial)
         
         if streamVideo.stopped is False:
             fps = FPS().start()
@@ -84,13 +84,13 @@ class Detector(threading.Thread):
 
                 # display the size of the queue on the frame
                 if self.isDisplay:
-                    print("display - {} self.isStop - {}".format(keyframe, self.isStop))
                     # show the frame and update the FPS counter
                     displayScreen = "video : {}".format(self.video_serial)
                     cv2.imshow(displayScreen, frame)
 
                 cv2.waitKey(1)
 
+            print("Detector Stopped - {}".format(self.video_serial))
             fps.stop()
             streamVideo.stop()
             cv2.destroyAllWindows()

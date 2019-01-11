@@ -17,11 +17,12 @@ import base64
 
 
 class StreamVideo:
-    def __init__(self, path, queueSize=10):
+    def __init__(self, path, video_serial, queueSize=10):
         # initialize the file video stream along with the boolean
         # used to indicate if the thread should be stopped or not
-        print("init stream video at path - {}".format(path))
         self.stream = cv2.VideoCapture(path)
+        self.video_serial = video_serial
+        print("init stream video at path - {}".format(path))
 
         if self.stream.isOpened():
             self.fps = self.stream.get(cv2.CAP_PROP_FPS)
@@ -30,7 +31,7 @@ class StreamVideo:
             self.dropCount = 0
             self.keyframe = 0
             # initialize the queue used to store frames read from the video file
-            self.Q = Queue.Queue(maxsize=queueSize)
+            self.captureQueue = Queue.Queue(maxsize=queueSize)
             self.fetchWorker = threading.Thread(target=self.update, args=())
             self.fetchWorker.setDaemon(True)
             self.fetchWorker.start()
@@ -41,18 +42,19 @@ class StreamVideo:
     def update(self):
         # keep looping infinitely
         while True:
-            # if the thread indicator variable is set, stop the
-            # thread
+            # if the thread indicator variable is set, stop the thread
             if self.stopped:
                 return
 
             self.keyframe += 1
             # otherwise, ensure the queue has room in it
-            if self.Q.full():
+
+            print("captureQueue {} qsize: {}".format(self.video_serial, self.captureQueue.qsize()))
+            if self.captureQueue.full():
                 self.dropCount += 1
-                dropFrame = self.Q.get()
+                self.captureQueue.get()
                 print(
-                    "drop frame {} / drop count {}".format(self.keyframe, self.dropCount))
+                    "drop frame {}, keyframe {} / drop count {}".format(self.video_serial, self.keyframe, self.dropCount))
 
             # read the next frame from the file
             (grabbed, frame) = self.stream.read()
@@ -64,16 +66,17 @@ class StreamVideo:
                 return
 
             # add the frame to the queue
-            self.Q.put((self.keyframe, frame))
+            self.captureQueue.put((self.keyframe, frame))
 
     def read(self):
         # return next frame in the queue
-        return self.Q.get()
+        return self.captureQueue.get()
 
     def more(self):
         # return True if there are still frames in the queue
-        return self.Q.qsize() > 0
+        return self.captureQueue.qsize() > 0
 
     def stop(self):
         # indicate that the thread should be stopped
+        print("stop VideoCapture - {}".format(self.video_serial))
         self.stopped = True
