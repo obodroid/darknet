@@ -138,7 +138,7 @@ class DarknetServerProtocol(WebSocketServerProtocol):
     
     def removeDetector(self,video_serial):
         self.detectors[video_serial].stopStream()
-        self.detectors[video_serial].join()
+        # self.detectors[video_serial].join()
         del self.detectors[video_serial]
 
 
