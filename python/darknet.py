@@ -218,6 +218,8 @@ class Darknet():
     def __init__(self):
         self.net = load_net(configPath, weightPath, 0)
         self.meta = load_meta(metaPath)
+        for i in range(self.meta.classes):
+            self.meta.names[i] = self.meta.names[i].replace(' ', '_')
         self.detectQueue = Queue.Queue(maxsize=10)
         self.detectWorker = threading.Thread(target=self.consume)
         self.detectWorker.setDaemon(True)
