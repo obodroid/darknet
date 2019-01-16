@@ -22,11 +22,11 @@ class StreamVideo:
         # used to indicate if the thread should be stopped or not
         self.stream = cv2.VideoCapture(path)
         self.video_serial = video_serial
-        print("init stream video at path - {}".format(path))
 
         if self.stream.isOpened():
             self.fps = self.stream.get(cv2.CAP_PROP_FPS)
-            print("run VideoCapture fps - {}, path - {}".format(self.fps, path))
+            print(
+                "StreamVideo run VideoCapture at path - {}, fps - {}".format(path, self.fps))
             self.stopped = False
             self.dropCount = 0
             self.keyframe = 0
@@ -36,7 +36,7 @@ class StreamVideo:
             self.fetchWorker.setDaemon(True)
             self.fetchWorker.start()
         else:
-            print("error VideoCapture at path - {}".format(path))
+            print("StreamVideo error VideoCapture at path - {}".format(path))
             self.stopped = True
 
     def update(self):
@@ -47,17 +47,19 @@ class StreamVideo:
                 return
 
             self.keyframe += 1
-            # otherwise, ensure the queue has room in it
 
-            print("captureQueue {} qsize: {}".format(self.video_serial, self.captureQueue.qsize()))
+            print("StreamVideo captureQueue {} qsize: {}".format(
+                self.video_serial, self.captureQueue.qsize()))
             if self.captureQueue.full():
                 self.dropCount += 1
                 self.captureQueue.get()
-                print(
-                    "drop frame {}, keyframe {} / drop count {}".format(self.video_serial, self.keyframe, self.dropCount))
+                print("StreamVideo drop frame {}, keyframe {} / drop count {}".format(
+                    self.video_serial, self.keyframe, self.dropCount))
 
             # read the next frame from the file
+            print("StreamVideo start read stream {}".format(self.video_serial))
             (grabbed, frame) = self.stream.read()
+            print("StreamVideo finish read stream {}".format(self.video_serial))
 
             # if the `grabbed` boolean is `False`, then we have
             # reached the end of the video file
@@ -70,13 +72,12 @@ class StreamVideo:
 
     def read(self):
         # return next frame in the queue
-        return self.captureQueue.get()
-
-    def more(self):
-        # return True if there are still frames in the queue
-        return self.captureQueue.qsize() > 0
+        try:
+            return self.captureQueue.get(False)
+        except Queue.Empty:
+            return None, None
 
     def stop(self):
         # indicate that the thread should be stopped
-        print("stop VideoCapture - {}".format(self.video_serial))
+        print("StreamVideo stop VideoCapture - {}".format(self.video_serial))
         self.stopped = True

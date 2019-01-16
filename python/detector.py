@@ -1,3 +1,4 @@
+import darknet
 from ctypes import *
 from imutils.video import FPS
 import math
@@ -41,7 +42,7 @@ sys.path.append(os.path.join(fileDir, ".."))
 # log.setLevel(logging.DEBUG) # anything ERROR or above
 # log.warn('Import darknet.py!')
 # log.critical('Going to load neural network over GPU!')
-import darknet
+
 
 class Detector(threading.Thread):
     def __init__(self, robotId, videoId, stream, threshold, callback):
@@ -62,24 +63,26 @@ class Detector(threading.Thread):
 
     def run(self):
         streamVideo = StreamVideo(self.stream, self.video_serial)
-        
+
         if streamVideo.stopped is False:
             fps = FPS().start()
             self.videoCaptureReady()
 
             while self.isStop is False:
-                # grab the frame from the threaded video file stream, resize
-                # it, and convert it to grayscale (while still retaining 3
-                # channels)
+                # grab the frame from the threaded video file stream
                 keyframe, frame = streamVideo.read()
 
                 if frame is None:
                     continue
 
-                # add to neural network detection queue
-                darknet.putLoad(self, keyframe, frame)
-                print("process video {} at keyframe {}".format(
+                print("Detector consume video {} at keyframe {}".format(
                     self.video_serial, keyframe))
+
+                # add to neural network detection queue
+                print("Detector push video {} to detection queue at keyframe {}".format(
+                    self.video_serial, keyframe))
+
+                darknet.putLoad(self, keyframe, frame)
                 fps.update()
 
                 # display the size of the queue on the frame
@@ -88,6 +91,8 @@ class Detector(threading.Thread):
                     displayScreen = "video : {}".format(self.video_serial)
                     cv2.imshow(displayScreen, frame)
 
+                print("Detector of video {} wait at keyframe {}".format(
+                    self.video_serial, keyframe))
                 cv2.waitKey(1)
 
             print("Detector Stopped - {}".format(self.video_serial))
