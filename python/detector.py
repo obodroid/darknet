@@ -17,6 +17,8 @@ import signal
 import sys
 import json
 from datetime import datetime
+from PIL import Image
+import StringIO
 import time
 import base64
 import Queue
@@ -62,6 +64,18 @@ class Detector(threading.Thread):
         print ("Detector Initialized - {}".format(self.video_serial))
 
     def run(self):
+        head = "data:image/jpeg;base64,"
+        if self.stream.startswith(head):
+            print("Detector consume image {}".format(self.video_serial))
+            imgData = base64.b64decode(self.stream[len(head):])
+            imgStr = StringIO.StringIO()
+            imgStr.write(imgData)
+            imgStr.seek(0)
+            imgPIL = Image.open(imgStr)
+            frame = np.asarray(imgPIL)
+            darknet.putLoad(self, 1, frame)
+            return
+
         streamVideo = StreamVideo(self.stream, self.video_serial)
 
         if streamVideo.stopped is False:

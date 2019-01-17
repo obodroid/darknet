@@ -93,6 +93,9 @@ class DarknetServerProtocol(WebSocketServerProtocol):
         if msg['type'] == "START":
             print("START - {}".format(video_serial))
             self.processVideo(msg)
+        elif msg['type'] == "IMAGE":
+            print("IMAGE - {}".format(video_serial))
+            self.processImage(msg)
         elif msg['type'] == "UPDATE":
             print("UPDATE - {}".format(video_serial))
             if video_serial in self.detectors:
@@ -114,6 +117,17 @@ class DarknetServerProtocol(WebSocketServerProtocol):
         for video_serial in self.detectors.keys():
             self.removeDetector(video_serial)
         print("WebSocket connection closed: {0}".format(reason))
+
+    def processImage(self, msg):
+        robotId = msg['robotId']
+        videoId = msg['videoId']
+        image = msg['stream']
+        video_serial = robotId + "-" + videoId
+
+        print("processImage {}".format(video_serial))
+        detectorWorker = detector.Detector(
+            robotId, videoId, image, None, self.detectCallback)
+        detectorWorker.start()
 
     def processVideo(self, msg):
         robotId = msg['robotId']
