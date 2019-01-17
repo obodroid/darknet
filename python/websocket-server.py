@@ -68,6 +68,7 @@ import detector
 class DarknetServerProtocol(WebSocketServerProtocol):
     def __init__(self):
         super(DarknetServerProtocol, self).__init__()
+        self.imageKeyFrame = 0
         self.detectors = {}
 
     def onConnect(self, request):
@@ -127,6 +128,9 @@ class DarknetServerProtocol(WebSocketServerProtocol):
         print("processImage {}".format(video_serial))
         detectorWorker = detector.Detector(
             robotId, videoId, image, None, self.detectCallback)
+        
+        self.imageKeyFrame += 1
+        detectorWorker.keyframe = self.imageKeyFrame
         detectorWorker.start()
 
     def processVideo(self, msg):

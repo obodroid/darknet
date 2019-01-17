@@ -72,8 +72,8 @@ class Detector(threading.Thread):
             imgStr.write(imgData)
             imgStr.seek(0)
             imgPIL = Image.open(imgStr)
-            frame = np.asarray(imgPIL)
-            darknet.putLoad(self, 1, frame)
+            frame = cv2.cvtColor(np.asarray(imgPIL), cv2.COLOR_RGB2BGR)
+            darknet.putLoad(self, self.keyframe, frame)
             return
 
         streamVideo = StreamVideo(self.stream, self.video_serial)
