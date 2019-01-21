@@ -209,7 +209,7 @@ thresh = .6
 hier_thresh = .5
 nms = .45
 bufferSize = 3
-maxTimeout = 10  # secs
+maxTimeout = 10 # secs
 
 isNeedSaveImage = True
 fullImageDir = "/tmp/.robot-app/full_images"
@@ -246,7 +246,7 @@ class Darknet():
                 benchmark.end("nnDetect-consume")
             cv2.waitKey(1)
 
-    # ##original import darknet with some test function
+    # # original import darknet with some test function
     #  
     # def classify(net, meta, im):
     #     out = predict_image(net, im)
@@ -405,16 +405,16 @@ def saveImage(filepath, frame):
     cv2.imwrite(filepath, frame)
 
 def initSaveImage():
-        if isNeedSaveImage:
-            if not os.path.exists(fullImageDir):
-                try:
-                    os.makedirs(fullImageDir)
-                except OSError as exc:  # Guard against race condition
-                    print("OSError:cannot make directory.")
-            else:
-                fileList = os.listdir(fullImageDir)
-                for fileName in fileList:
-                    os.remove(fullImageDir+"/"+fileName)
+    if isNeedSaveImage:
+        if not os.path.exists(fullImageDir):
+            try:
+                os.makedirs(fullImageDir)
+            except OSError as exc:  # Guard against race condition
+                print("OSError:cannot make directory.")
+        else:
+            fileList = os.listdir(fullImageDir)
+            for fileName in fileList:
+                os.remove(fullImageDir+"/"+fileName)
 
 darknetWorkers = []
 loadIndex = 0
