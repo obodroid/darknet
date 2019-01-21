@@ -69,6 +69,8 @@ class DarknetServerProtocol(WebSocketServerProtocol):
     def __init__(self):
         super(DarknetServerProtocol, self).__init__()
         self.imageKeyFrame = 0
+        self.numWorkers = 1
+        self.numGpus = 1
         self.detectors = {}
 
     def onConnect(self, request):
@@ -79,12 +81,19 @@ class DarknetServerProtocol(WebSocketServerProtocol):
 
     def onMessage(self, payload, isBinary):
         raw = payload.decode('utf8')
-        print("server raw msg - {}".format(raw))
+        print("server receive msg - {}".format(raw))
         msg = json.loads(raw)
 
         if msg['type'] == "SETUP":
+            if msg['num_workers']:
+                self.numWorkers = msg['num_workers']
+            if msg['num_gpus']:
+                self.numGpus = msg['num_gpus']
             if msg['debug']:
                 darknet.benchmark.enable = True
+
+            darknet.initSaveImage()
+            darknet.initDarknetWorkers(self.numWorkers, self.numGpus)
             return
 
         robotId = msg['robotId']

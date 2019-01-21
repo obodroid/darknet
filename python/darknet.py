@@ -416,22 +416,24 @@ def initSaveImage():
                 for fileName in fileList:
                     os.remove(fullImageDir+"/"+fileName)
 
-initSaveImage()
-numWorkers = 8
-numGpus = 2
 darknetWorkers = []
-print("darknet numWorkers : {}".format(numWorkers))
-
 loadIndex = 0
-
-for i in range(numWorkers):
-    gpuIndex = i%numGpus
-    set_gpu(gpuIndex)
-    print("Load Darknet worker = {} with gpuIndex = {}".format(i,gpuIndex))
-    darknetWorkers.append(Darknet())
+numWorkers = 1
 
 def putLoad(detector, keyframe, frame):
     global loadIndex
     print("putLoad loadIndex = {}".format(loadIndex))
-    darknetWorkers[loadIndex%numWorkers].qput(detector, keyframe, frame)
+    darknetWorkers[loadIndex % numWorkers].qput(detector, keyframe, frame)
     loadIndex = loadIndex + 1
+
+def initDarknetWorkers(_numWorkers, _numGpus):
+    global numWorkers
+
+    numWorkers = _numWorkers
+    print("darknet numWorkers : {}, numGpus : {}".format(_numWorkers, _numGpus))
+
+    for i in range(numWorkers):
+        gpuIndex = i % _numGpus
+        set_gpu(gpuIndex)
+        print("Load Darknet worker = {} with gpuIndex = {}".format(i, gpuIndex))
+        darknetWorkers.append(Darknet())
