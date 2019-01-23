@@ -65,6 +65,8 @@ args = parser.parse_args()
 import darknet
 import detector
 
+darknetIsInit = False
+
 class DarknetServerProtocol(WebSocketServerProtocol):
     def __init__(self):
         super(DarknetServerProtocol, self).__init__()
@@ -92,8 +94,12 @@ class DarknetServerProtocol(WebSocketServerProtocol):
             if msg['debug']:
                 darknet.benchmark.enable = True
 
-            darknet.initSaveImage()
-            darknet.initDarknetWorkers(self.numWorkers, self.numGpus)
+            global darknetIsInit
+            print("server darknetIsInit - {}".format(darknetIsInit))
+            if not darknetIsInit:
+                darknetIsInit = True
+                darknet.initSaveImage()
+                darknet.initDarknetWorkers(self.numWorkers, self.numGpus)
             return
 
         robotId = msg['robotId']
@@ -165,7 +171,6 @@ class DarknetServerProtocol(WebSocketServerProtocol):
     
     def removeDetector(self,video_serial):
         self.detectors[video_serial].stopStream()
-        # self.detectors[video_serial].join()
         del self.detectors[video_serial]
 
 
