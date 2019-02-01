@@ -22,6 +22,7 @@ class StreamVideo:
         # used to indicate if the thread should be stopped or not
         self.stream = cv2.VideoCapture(path)
         self.video_serial = video_serial
+        self.max_fps = 2.0
 
         if self.stream.isOpened():
             self.fps = self.stream.get(cv2.CAP_PROP_FPS)
@@ -30,6 +31,7 @@ class StreamVideo:
             self.stopped = False
             self.dropCount = 0
             self.keyframe = 0
+            self.previous_frame_time = datetime.now()
             # initialize the queue used to store frames read from the video file
             self.captureQueue = Queue.Queue(maxsize=queueSize)
             self.fetchWorker = threading.Thread(target=self.update, args=())
@@ -53,13 +55,21 @@ class StreamVideo:
             if self.captureQueue.full():
                 self.dropCount += 1
                 self.captureQueue.get()
-                print("StreamVideo drop frame {}, keyframe {} / drop count {}".format(
+                print("StreamVideo drop queue full frame {}, keyframe {} / drop count {}".format(
                     self.video_serial, self.keyframe, self.dropCount))
 
             # read the next frame from the file
             print("StreamVideo start read stream {}".format(self.video_serial))
             (grabbed, frame) = self.stream.read()
             print("StreamVideo finish read stream {}".format(self.video_serial))
+
+            current_frame_time = datetime.now()
+            diff_from_previous_frame = (current_frame_time - self.previous_frame_time).total_seconds()
+            if diff_from_previous_frame < (1.0 / self.max_fps):
+                self.dropCount += 1
+                print("StreamVideo drop high fps frame {}, keyframe {} / drop count {} / time diff {}".format(
+                    self.video_serial, self.keyframe, self.dropCount, diff_from_previous_frame))
+                continue
 
             # if the `grabbed` boolean is `False`, then we have
             # reached the end of the video file
@@ -69,6 +79,7 @@ class StreamVideo:
 
             # add the frame to the queue
             self.captureQueue.put((self.keyframe, frame))
+            self.previous_frame_time = datetime.now()
 
     def read(self):
         # return next frame in the queue
