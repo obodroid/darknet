@@ -22,7 +22,7 @@ class StreamVideo:
         # used to indicate if the thread should be stopped or not
         self.stream = cv2.VideoCapture(path)
         self.video_serial = video_serial
-        self.max_fps = 2.0
+        self.max_fps = 4.0
 
         if self.stream.isOpened():
             self.fps = self.stream.get(cv2.CAP_PROP_FPS)
