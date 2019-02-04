@@ -122,6 +122,12 @@ class DarknetServerProtocol(WebSocketServerProtocol):
                 self.removeDetector(video_serial)
         elif msg['type'] == "ECHO":
             print("ECHO - {}".format(video_serial))
+            if False:
+                # attach message with maximum size limit
+                res = ''
+                for i in range(1, 8300000):
+                    res += str(1)
+                msg['response'] = res
             self.sendMessage(json.dumps(msg))
         elif msg['type'] == "READY":
             print("READY - {}".format(video_serial))
@@ -178,7 +184,7 @@ def main(reactor):
     observer = log.startLogging(sys.stdout)
     observer.timeFormat = "%Y-%m-%d %T.%f"
     factory = WebSocketServerFactory()
-    factory.setProtocolOptions(autoPingInterval=1, autoPingTimeout=2)
+    factory.setProtocolOptions(autoPingInterval=1, autoPingTimeout=5, autoFragmentSize=1000000)
     factory.protocol = DarknetServerProtocol
     # ctx_factory = DefaultOpenSSLContextFactory(tls_key, tls_crt)
     # reactor.listenSSL(args.port, factory, ctx_factory)
