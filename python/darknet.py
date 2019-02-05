@@ -20,7 +20,7 @@ import time
 import base64
 import Queue
 import logging
-import benchmark
+# import benchmark
 
 fileDir = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(fileDir, ".."))
@@ -215,9 +215,10 @@ isNeedSaveImage = True
 fullImageDir = "/tmp/.robot-app/full_images"
 
 class Darknet():
-    def __init__(self):
+    def __init__(self, index):
         self.net = load_net(configPath, weightPath, 0)
         self.meta = load_meta(metaPath)
+        self.index = index
         for i in range(self.meta.classes):
             self.meta.names[i] = self.meta.names[i].replace(' ', '_')
         self.detectQueue = Queue.Queue(maxsize=10)
@@ -226,24 +227,24 @@ class Darknet():
         self.detectWorker.start()
 
     def qput(self, detector, keyframe, frame):
-        print("detectQueue qsize: {}".format(self.detectQueue.qsize()))
-        benchmark.startAvg(10.0, "dropframe")
+        print("darknet {} detectQueue qsize: {}".format(self.index, self.detectQueue.qsize()))
+        # benchmark.startAvg(10.0, "dropframe")
         if self.detectQueue.full():
             dropDetector, dropKeyframe, dropFrame = self.detectQueue.get()
             video_serial = dropDetector.robotId + "-" + dropDetector.videoId
-            print("darknet drop frame {}, keyframe {}".format(video_serial, keyframe))
-            benchmark.updateAvg("dropframe")
+            print("darknet {} drop frame {}, keyframe {}".format(self.index, video_serial, keyframe))
+            # benchmark.updateAvg("dropframe")
         self.detectQueue.put([detector, keyframe, frame])
 
     def consume(self):
         # TODO need flag to stop benchmark
         while True:
             if not self.detectQueue.empty():
-                benchmark.start("nnDetect-consume")
+                # benchmark.start("nnDetect-consume")
                 detector, keyframe, frame = self.detectQueue.get()
                 frame = self.nnDetect(detector, keyframe, frame)
-                benchmark.update("nnDetect-consume")
-                benchmark.end("nnDetect-consume")
+                # benchmark.update("nnDetect-consume")
+                # benchmark.end("nnDetect-consume")
             cv2.waitKey(1)
 
     # # original import darknet with some test function
@@ -296,7 +297,7 @@ class Darknet():
 
     def nnDetect(self, detector, keyframe, frame):
         video_serial = detector.robotId + "-" + detector.videoId
-        print("darknet nnDetect {}, keyframe {}".format(video_serial, keyframe))
+        print("darknet {} nnDetect {}, keyframe {}".format(self.index, video_serial, keyframe))
 
         # red for palmup --> stop, green for thumbsup --> go
         # classes_box_colors = [(0, 0, 255), (0, 255, 0)]
@@ -350,7 +351,7 @@ class Darknet():
                             video_serial, keyframe, self.meta.names[i], dets[j].prob[i])
                         print(logMsg)
 
-                        benchmark.saveImage(cropImage, self.meta.names[i])  # benchmark
+                        # benchmark.saveImage(cropImage, self.meta.names[i])  # benchmark
 
                         # - JSON message to send in callback
                         # - base64 image
@@ -422,7 +423,7 @@ numWorkers = 1
 
 def putLoad(detector, keyframe, frame):
     global loadIndex
-    print("putLoad loadIndex = {}".format(loadIndex))
+    print("darknet putLoad loadIndex = {}, workerIndex = {}".format(loadIndex, loadIndex % numWorkers))
     darknetWorkers[loadIndex % numWorkers].qput(detector, keyframe, frame)
     loadIndex = loadIndex + 1
 
@@ -436,4 +437,4 @@ def initDarknetWorkers(_numWorkers, _numGpus):
         gpuIndex = i % _numGpus
         set_gpu(gpuIndex)
         print("Load Darknet worker = {} with gpuIndex = {}".format(i, gpuIndex))
-        darknetWorkers.append(Darknet())
+        darknetWorkers.append(Darknet(i))

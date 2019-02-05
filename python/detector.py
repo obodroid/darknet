@@ -89,6 +89,7 @@ class Detector(threading.Thread):
                 if frame is None:
                     continue
 
+                self.sendLogMessage(keyframe, "receive_frame")
                 print("Detector consume video {} at keyframe {}".format(
                     self.video_serial, keyframe))
 
@@ -150,5 +151,5 @@ class Detector(threading.Thread):
             "step": step,
             "time": datetime.now().isoformat()
         }
-        if benchmark.enable and keyframe < 100:
+        if benchmark.enable:
             self.callback(msg)

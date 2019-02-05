@@ -64,6 +64,7 @@ args = parser.parse_args()
 
 import darknet
 import detector
+import benchmark
 
 darknetIsInit = False
 
@@ -92,7 +93,7 @@ class DarknetServerProtocol(WebSocketServerProtocol):
             if msg['num_gpus']:
                 self.numGpus = msg['num_gpus']
             if msg['debug']:
-                darknet.benchmark.enable = True
+                benchmark.enable = True
 
             global darknetIsInit
             print("server darknetIsInit - {}".format(darknetIsInit))

@@ -50,8 +50,8 @@ class StreamVideo:
 
             self.keyframe += 1
 
-            print("StreamVideo captureQueue {} qsize: {}".format(
-                self.video_serial, self.captureQueue.qsize()))
+            print("StreamVideo captureQueue {}, keyframe {}, qsize: {}".format(
+                self.video_serial, self.keyframe, self.captureQueue.qsize()))
             if self.captureQueue.full():
                 self.dropCount += 1
                 self.captureQueue.get()
@@ -59,9 +59,9 @@ class StreamVideo:
                     self.video_serial, self.keyframe, self.dropCount))
 
             # read the next frame from the file
-            print("StreamVideo start read stream {}".format(self.video_serial))
+            # print("StreamVideo start read stream {}".format(self.video_serial))
             (grabbed, frame) = self.stream.read()
-            print("StreamVideo finish read stream {}".format(self.video_serial))
+            # print("StreamVideo finish read stream {}".format(self.video_serial))
 
             current_frame_time = datetime.now()
             diff_from_previous_frame = (current_frame_time - self.previous_frame_time).total_seconds()
