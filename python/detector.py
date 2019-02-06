@@ -84,7 +84,7 @@ class Detector(threading.Thread):
 
             while self.isStop is False:
                 # grab the frame from the threaded video file stream
-                keyframe, frame = streamVideo.read()
+                keyframe, frame, time = streamVideo.read()
 
                 if frame is None:
                     continue
@@ -97,7 +97,7 @@ class Detector(threading.Thread):
                 print("Detector push video {} to detection queue at keyframe {}".format(
                     self.video_serial, keyframe))
 
-                darknet.putLoad(self, keyframe, frame)
+                darknet.putLoad(self, keyframe, frame, time)
                 fps.update()
 
                 # display the size of the queue on the frame

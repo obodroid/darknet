@@ -78,15 +78,15 @@ class StreamVideo:
                 return
 
             # add the frame to the queue
-            self.captureQueue.put((self.keyframe, frame))
-            self.previous_frame_time = datetime.now()
+            self.captureQueue.put((self.keyframe, frame, current_frame_time))
+            self.previous_frame_time = current_frame_time
 
     def read(self):
         # return next frame in the queue
         try:
             return self.captureQueue.get(False)
         except Queue.Empty:
-            return None, None
+            return None, None, None
 
     def stop(self):
         # indicate that the thread should be stopped

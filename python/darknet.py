@@ -226,23 +226,23 @@ class Darknet():
         self.detectWorker.setDaemon(True)
         self.detectWorker.start()
 
-    def qput(self, detector, keyframe, frame):
+    def qput(self, detector, keyframe, frame, time):
         print("darknet {} detectQueue qsize: {}".format(self.index, self.detectQueue.qsize()))
         # benchmark.startAvg(10.0, "dropframe")
         if self.detectQueue.full():
-            dropDetector, dropKeyframe, dropFrame = self.detectQueue.get()
+            dropDetector, dropKeyframe, dropFrame, _ = self.detectQueue.get()
             video_serial = dropDetector.robotId + "-" + dropDetector.videoId
             print("darknet {} drop frame {}, keyframe {}".format(self.index, video_serial, keyframe))
             # benchmark.updateAvg("dropframe")
-        self.detectQueue.put([detector, keyframe, frame])
+        self.detectQueue.put([detector, keyframe, frame, time])
 
     def consume(self):
         # TODO need flag to stop benchmark
         while True:
             if not self.detectQueue.empty():
                 # benchmark.start("nnDetect-consume")
-                detector, keyframe, frame = self.detectQueue.get()
-                frame = self.nnDetect(detector, keyframe, frame)
+                detector, keyframe, frame, time = self.detectQueue.get()
+                frame = self.nnDetect(detector, keyframe, frame, time)
                 # benchmark.update("nnDetect-consume")
                 # benchmark.end("nnDetect-consume")
             cv2.waitKey(1)
@@ -295,7 +295,7 @@ class Darknet():
     #     free_detections(dets, num)
     #     return res
 
-    def nnDetect(self, detector, keyframe, frame):
+    def nnDetect(self, detector, keyframe, frame, time):
         video_serial = detector.robotId + "-" + detector.videoId
         print("darknet {} nnDetect {}, keyframe {}".format(self.index, video_serial, keyframe))
 
@@ -377,6 +377,8 @@ class Darknet():
                             "objectType": self.meta.names[i],
                             "prob": dets[j].prob[i],
                             "dataURL": dataURL,
+                            "frame_time": time.isoformat(),
+                            "detect_time": datetime.now().isoformat(),
                         }
                         foundObject = True
                         detector.callback(msg)
@@ -421,10 +423,10 @@ darknetWorkers = []
 loadIndex = 0
 numWorkers = 1
 
-def putLoad(detector, keyframe, frame):
+def putLoad(detector, keyframe, frame, time):
     global loadIndex
     print("darknet putLoad loadIndex = {}, workerIndex = {}".format(loadIndex, loadIndex % numWorkers))
-    darknetWorkers[loadIndex % numWorkers].qput(detector, keyframe, frame)
+    darknetWorkers[loadIndex % numWorkers].qput(detector, keyframe, frame, time)
     loadIndex = loadIndex + 1
 
 def initDarknetWorkers(_numWorkers, _numGpus):
