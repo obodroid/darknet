@@ -90,12 +90,12 @@ class Detector(threading.Thread):
                     continue
 
                 self.sendLogMessage(keyframe, "receive_frame")
-                print("Detector consume video {} at keyframe {}".format(
-                    self.video_serial, keyframe))
+                # print("Detector consume video {} at keyframe {}".format(
+                #     self.video_serial, keyframe))
 
                 # add to neural network detection queue
-                print("Detector push video {} to detection queue at keyframe {}".format(
-                    self.video_serial, keyframe))
+                # print("Detector push video {} to detection queue at keyframe {}".format(
+                #     self.video_serial, keyframe))
 
                 darknet.putLoad(self, keyframe, frame, time)
                 fps.update()
@@ -106,8 +106,8 @@ class Detector(threading.Thread):
                     displayScreen = "video : {}".format(self.video_serial)
                     cv2.imshow(displayScreen, frame)
 
-                print("Detector of video {} wait at keyframe {}".format(
-                    self.video_serial, keyframe))
+                # print("Detector of video {} wait at keyframe {}".format(
+                #     self.video_serial, keyframe))
                 cv2.waitKey(1)
 
             print("Detector Stopped - {}".format(self.video_serial))

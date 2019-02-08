@@ -297,7 +297,7 @@ class Darknet():
 
     def nnDetect(self, detector, keyframe, frame, time):
         video_serial = detector.robotId + "-" + detector.videoId
-        print("darknet {} nnDetect {}, keyframe {}".format(self.index, video_serial, keyframe))
+        # print("darknet {} nnDetect {}, keyframe {}".format(self.index, video_serial, keyframe))
 
         # red for palmup --> stop, green for thumbsup --> go
         # classes_box_colors = [(0, 0, 255), (0, 255, 0)]
@@ -425,7 +425,7 @@ numWorkers = 1
 
 def putLoad(detector, keyframe, frame, time):
     global loadIndex
-    print("darknet putLoad loadIndex = {}, workerIndex = {}".format(loadIndex, loadIndex % numWorkers))
+    # print("darknet putLoad loadIndex = {}, workerIndex = {}".format(loadIndex, loadIndex % numWorkers))
     darknetWorkers[loadIndex % numWorkers].qput(detector, keyframe, frame, time)
     loadIndex = loadIndex + 1
 

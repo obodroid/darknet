@@ -67,8 +67,8 @@ class StreamVideo:
             diff_from_previous_frame = (current_frame_time - self.previous_frame_time).total_seconds()
             if diff_from_previous_frame < (1.0 / self.max_fps):
                 self.dropCount += 1
-                print("StreamVideo drop high fps frame {}, keyframe {} / drop count {} / time diff {}".format(
-                    self.video_serial, self.keyframe, self.dropCount, diff_from_previous_frame))
+                # print("StreamVideo drop high fps frame {}, keyframe {} / drop count {} / time diff {}".format(
+                #     self.video_serial, self.keyframe, self.dropCount, diff_from_previous_frame))
                 continue
 
             # if the `grabbed` boolean is `False`, then we have
