@@ -95,13 +95,14 @@ class DarknetServerProtocol(WebSocketServerProtocol):
             if msg['debug']:
                 benchmark.enable = True
 
+            self.monitor(0.5)
+            
             global darknetIsInit
             print("server darknetIsInit - {}".format(darknetIsInit))
             if not darknetIsInit:
                 darknetIsInit = True
                 darknet.initSaveImage()
                 darknet.initDarknetWorkers(self.numWorkers, self.numGpus)
-                self.monitor(0.5)
             return
 
         robotId = msg['robotId']
