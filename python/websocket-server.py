@@ -101,7 +101,7 @@ class DarknetServerProtocol(WebSocketServerProtocol):
                 darknetIsInit = True
                 darknet.initSaveImage()
                 darknet.initDarknetWorkers(self.numWorkers, self.numGpus)
-                self.monitor(1)
+                self.monitor(0.5)
             return
 
         robotId = msg['robotId']
@@ -188,7 +188,8 @@ class DarknetServerProtocol(WebSocketServerProtocol):
         t.start()
         msg = {
             'type': 'MONITOR',
-            'detectQueueSizes': darknet.getDetectQueueSizes()
+            'detectRates': darknet.getDetectRates(),
+            'detectQueueSize': darknet.getDetectQueueSize(),
         }
         self.sendMessage(json.dumps(msg))
 

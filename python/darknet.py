@@ -219,33 +219,31 @@ class Darknet():
         self.net = load_net(configPath, weightPath, 0)
         self.meta = load_meta(metaPath)
         self.index = index
+        self.detectCount = 0
+        self.detectRate = 0
         for i in range(self.meta.classes):
             self.meta.names[i] = self.meta.names[i].replace(' ', '_')
-        self.detectQueue = Queue.Queue(maxsize=10)
         self.detectWorker = threading.Thread(target=self.consume)
         self.detectWorker.setDaemon(True)
         self.detectWorker.start()
-
-    def qput(self, detector, keyframe, frame, time):
-        print("darknet {} detectQueue qsize: {}".format(self.index, self.detectQueue.qsize()))
-        # benchmark.startAvg(10.0, "dropframe")
-        if self.detectQueue.full():
-            dropDetector, dropKeyframe, dropFrame, _ = self.detectQueue.get()
-            video_serial = dropDetector.robotId + "-" + dropDetector.videoId
-            print("darknet {} drop frame {}, keyframe {}".format(self.index, video_serial, keyframe))
-            # benchmark.updateAvg("dropframe")
-        self.detectQueue.put([detector, keyframe, frame, time])
+        self.monitorDetectRate()
 
     def consume(self):
-        # TODO need flag to stop benchmark
         while True:
-            if not self.detectQueue.empty():
+            if not detectQueue.empty():
                 # benchmark.start("nnDetect-consume")
-                detector, keyframe, frame, time = self.detectQueue.get()
+                detector, keyframe, frame, time = detectQueue.get()
                 frame = self.nnDetect(detector, keyframe, frame, time)
                 # benchmark.update("nnDetect-consume")
                 # benchmark.end("nnDetect-consume")
             cv2.waitKey(1)
+
+    def monitorDetectRate(self):
+        t = threading.Timer(1.0, self.monitorDetectRate)
+        t.setDaemon(True)
+        t.start()
+        self.detectRate = self.detectCount
+        self.detectCount = 0
 
     # # original import darknet with some test function
     #  
@@ -392,6 +390,7 @@ class Darknet():
             t.start()
             t.join()
 
+        self.detectCount += 1
         return frame
 
 
@@ -420,14 +419,17 @@ def initSaveImage():
                 os.remove(fullImageDir+"/"+fileName)
 
 darknetWorkers = []
-loadIndex = 0
 numWorkers = 1
+detectQueue = Queue.Queue(maxsize=10)
 
 def putLoad(detector, keyframe, frame, time):
-    global loadIndex
-    # print("darknet putLoad loadIndex = {}, workerIndex = {}".format(loadIndex, loadIndex % numWorkers))
-    darknetWorkers[loadIndex % numWorkers].qput(detector, keyframe, frame, time)
-    loadIndex = loadIndex + 1
+    # benchmark.startAvg(10.0, "dropframe")
+    if detectQueue.full():
+        dropDetector, _, _, _ = detectQueue.get()
+        video_serial = dropDetector.robotId + "-" + dropDetector.videoId
+        print("darknet drop frame {}, keyframe {}".format(video_serial, keyframe))
+        # benchmark.updateAvg("dropframe")
+    detectQueue.put([detector, keyframe, frame, time])
 
 def initDarknetWorkers(_numWorkers, _numGpus):
     global numWorkers
@@ -441,9 +443,12 @@ def initDarknetWorkers(_numWorkers, _numGpus):
         print("Load Darknet worker = {} with gpuIndex = {}".format(i, gpuIndex))
         darknetWorkers.append(Darknet(i))
 
-def getDetectQueueSizes():
-    queueSizes = []
+def getDetectRates():
+    detectRates = []
     for i in range(len(darknetWorkers)):
-        queueSizes.append(darknetWorkers[i].detectQueue.qsize())
+        detectRates.append(darknetWorkers[i].detectRate)
         
-    return queueSizes
+    return detectRates
+
+def getDetectQueueSize():
+    return detectQueue.qsize()

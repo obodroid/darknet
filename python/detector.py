@@ -56,7 +56,6 @@ class Detector(threading.Thread):
         self.video_serial = robotId + "-" + videoId
         self.callback = callback
         self.isDisplay = False  # TODO should receive args to display or not
-        self.intervalTime = 0.2
         self.targetObjects = []
         self.isStop = False
 
