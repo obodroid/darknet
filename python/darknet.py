@@ -440,3 +440,10 @@ def initDarknetWorkers(_numWorkers, _numGpus):
         set_gpu(gpuIndex)
         print("Load Darknet worker = {} with gpuIndex = {}".format(i, gpuIndex))
         darknetWorkers.append(Darknet(i))
+
+def getDetectQueueSizes():
+    queueSizes = []
+    for i in range(len(darknetWorkers)):
+        queueSizes.append(darknetWorkers[i].detectQueue.qsize())
+        
+    return queueSizes

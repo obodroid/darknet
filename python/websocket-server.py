@@ -101,6 +101,7 @@ class DarknetServerProtocol(WebSocketServerProtocol):
                 darknetIsInit = True
                 darknet.initSaveImage()
                 darknet.initDarknetWorkers(self.numWorkers, self.numGpus)
+                self.monitor(1)
             return
 
         robotId = msg['robotId']
@@ -180,6 +181,16 @@ class DarknetServerProtocol(WebSocketServerProtocol):
     def removeDetector(self,video_serial):
         self.detectors[video_serial].stopStream()
         del self.detectors[video_serial]
+
+    def monitor(self, interval):
+        t = threading.Timer(interval, self.monitor, [interval])
+        t.setDaemon(True)
+        t.start()
+        msg = {
+            'type': 'MONITOR',
+            'detectQueueSizes': darknet.getDetectQueueSizes()
+        }
+        self.sendMessage(json.dumps(msg))
 
 
 def main(reactor):
