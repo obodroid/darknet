@@ -66,6 +66,10 @@ import darknet
 import detector
 import benchmark
 
+dummyText = ''
+for i in range(0, 8300000):
+    dummyText += str(1)
+
 darknetIsInit = False
 
 class DarknetServerProtocol(WebSocketServerProtocol):
@@ -127,10 +131,7 @@ class DarknetServerProtocol(WebSocketServerProtocol):
             print("ECHO - {}".format(video_serial))
             if False:
                 # attach message with maximum size limit
-                res = ''
-                for i in range(1, 8300000):
-                    res += str(1)
-                msg['response'] = res
+                msg['response'] = dummyText
             self.sendMessage(json.dumps(msg))
         elif msg['type'] == "READY":
             print("READY - {}".format(video_serial))
