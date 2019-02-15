@@ -178,7 +178,7 @@ class DarknetServerProtocol(WebSocketServerProtocol):
 
     def detectCallback(self, msg):
         # print("detectCallback sendMessage robotId {} videoId {}".format(msg['robotId'], msg['videoId']))
-        reactor.callFromThread(self.sendMessage, json.dumps(msg))
+        reactor.callFromThread(self.sendMessage, json.dumps(msg), sync=True)
     
     def removeDetector(self,video_serial):
         self.detectors[video_serial].stopStream()
