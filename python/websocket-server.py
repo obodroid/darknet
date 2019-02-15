@@ -192,6 +192,7 @@ class DarknetServerProtocol(WebSocketServerProtocol):
             'type': 'MONITOR',
             'detectRates': darknet.getDetectRates(),
             'detectQueueSize': darknet.getDetectQueueSize(),
+            'detectDropFrames': darknet.getDetectDropFrames(),
         }
         self.sendMessage(json.dumps(msg))
 

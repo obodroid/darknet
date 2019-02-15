@@ -421,12 +421,16 @@ def initSaveImage():
 darknetWorkers = []
 numWorkers = 1
 detectQueue = Queue.Queue(maxsize=10)
+detectDropFrames = {}
 
 def putLoad(detector, keyframe, frame, time):
     # benchmark.startAvg(10.0, "dropframe")
     if detectQueue.full():
         dropDetector, _, _, _ = detectQueue.get()
         video_serial = dropDetector.robotId + "-" + dropDetector.videoId
+        if video_serial not in detectDropFrames:
+            detectDropFrames[video_serial] = 0
+        detectDropFrames[video_serial] += 1
         print("darknet drop frame {}, keyframe {}".format(video_serial, keyframe))
         # benchmark.updateAvg("dropframe")
     detectQueue.put([detector, keyframe, frame, time])
@@ -452,3 +456,6 @@ def getDetectRates():
 
 def getDetectQueueSize():
     return detectQueue.qsize()
+
+def getDetectDropFrames():
+    return detectDropFrames
