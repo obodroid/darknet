@@ -5,7 +5,6 @@ import argparse
 import cv2
 import numpy as np
 import threading
-import Queue
 from multiprocessing import Process
 import os
 import signal
@@ -16,8 +15,9 @@ import time
 import base64
 
 
-class StreamVideo:
-    def __init__(self, path, video_serial, queueSize=10):
+class StreamVideo(Process):
+    def __init__(self, path, video_serial, queue):
+        Process.__init__(self)
         # initialize the file video stream along with the boolean
         # used to indicate if the thread should be stopped or not
         self.stream = cv2.VideoCapture(path)
@@ -33,8 +33,8 @@ class StreamVideo:
             self.keyframe = 0
             self.previous_frame_time = datetime.now()
             # initialize the queue used to store frames read from the video file
-            self.captureQueue = Queue.Queue(maxsize=queueSize)
-            self.fetchWorker = threading.Thread(target=self.update, args=())
+            self.captureQueue = queue
+            self.fetchWorker = threading.Thread(target=self.update)
             self.fetchWorker.setDaemon(True)
             self.fetchWorker.start()
         else:
@@ -80,13 +80,6 @@ class StreamVideo:
             # add the frame to the queue
             self.captureQueue.put((self.keyframe, frame, current_frame_time))
             self.previous_frame_time = current_frame_time
-
-    def read(self):
-        # return next frame in the queue
-        try:
-            return self.captureQueue.get(False)
-        except Queue.Empty:
-            return None, None, None
 
     def stop(self):
         # indicate that the thread should be stopped

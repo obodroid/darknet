@@ -7,7 +7,7 @@ import argparse
 import cv2
 import numpy as np
 import threading
-from multiprocessing import Process
+from multiprocessing import Queue
 from random import randint
 from threading import Timer
 from twisted.internet import task, reactor, threads
@@ -21,7 +21,6 @@ from PIL import Image
 import StringIO
 import time
 import base64
-import Queue
 import logging
 from streamVideo import StreamVideo
 import benchmark
@@ -75,7 +74,8 @@ class Detector(threading.Thread):
             darknet.putLoad(self, self.keyframe, frame)
             return
 
-        streamVideo = StreamVideo(self.stream, self.video_serial)
+        captureQueue = Queue(maxsize=10)
+        streamVideo = StreamVideo(self.stream, self.video_serial, captureQueue)
 
         if streamVideo.stopped is False:
             fps = FPS().start()
@@ -83,14 +83,14 @@ class Detector(threading.Thread):
 
             while self.isStop is False:
                 # grab the frame from the threaded video file stream
-                keyframe, frame, time = streamVideo.read()
-
-                if frame is None:
+                if captureQueue.empty():
                     continue
 
+                keyframe, frame, time = captureQueue.get(False)
+
                 self.sendLogMessage(keyframe, "receive_frame")
-                # print("Detector consume video {} at keyframe {}".format(
-                #     self.video_serial, keyframe))
+                print("Detector consume video {} at keyframe {}".format(
+                    self.video_serial, keyframe))
 
                 # add to neural network detection queue
                 # print("Detector push video {} to detection queue at keyframe {}".format(
