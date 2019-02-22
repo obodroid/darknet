@@ -42,18 +42,16 @@ class StreamVideo(Process):
         while self.isStop.value is False:
             self.keyframe += 1
 
-            print("StreamVideo captureQueue {}, keyframe {}, qsize: {}".format(
-                self.video_serial, self.keyframe, self.captureQueue.qsize()))
+            # print("StreamVideo captureQueue {}, keyframe {}, qsize: {}".format(
+            #     self.video_serial, self.keyframe, self.captureQueue.qsize()))
             if self.captureQueue.full():
                 self.dropCount += 1
                 self.captureQueue.get()
                 print("StreamVideo drop queue full frame {}, keyframe {} / drop count {}".format(
                     self.video_serial, self.keyframe, self.dropCount))
 
-            # read the next frame from the file
             # print("StreamVideo start read stream {}".format(self.video_serial))
             (grabbed, frame) = self.stream.read()
-            # print(frame)
             # print("StreamVideo finish read stream {}".format(self.video_serial))
 
             current_frame_time = datetime.now()
@@ -72,8 +70,13 @@ class StreamVideo(Process):
 
             # add the frame to the queue
             self.captureQueue.put((self.keyframe, frame, current_frame_time))
-            # self.captureQueue.put((self.keyframe, current_frame_time))
             self.previous_frame_time = current_frame_time
+
+        while not self.captureQueue.empty():
+            self.captureQueue.get()
+
+        self.captureQueue.close()
+        self.stream.release()
 
     def stop(self):
         # indicate that the thread should be stopped
