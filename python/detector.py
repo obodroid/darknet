@@ -7,7 +7,7 @@ import argparse
 import cv2
 import numpy as np
 import threading
-from multiprocessing import Queue
+from multiprocessing import Queue, Value
 from random import randint
 from threading import Timer
 from twisted.internet import task, reactor, threads
@@ -56,7 +56,7 @@ class Detector(threading.Thread):
         self.callback = callback
         self.isDisplay = False  # TODO should receive args to display or not
         self.targetObjects = []
-        self.isStop = False
+        self.isStop = Value(c_bool, False)
 
         threading.Thread.__init__(self)
         print ("Detector Initialized - {}".format(self.video_serial))
@@ -75,52 +75,49 @@ class Detector(threading.Thread):
             return
 
         captureQueue = Queue(maxsize=10)
-        streamVideo = StreamVideo(self.stream, self.video_serial, captureQueue)
+        streamVideo = StreamVideo(self.stream, self.video_serial, captureQueue, self.isStop)
         streamVideo.start()
 
-        if streamVideo.stopped is False:
-            fps = FPS().start()
-            self.videoCaptureReady()
+        fps = FPS().start()
+        self.videoCaptureReady()
+        
+        while self.isStop.value is False:
+            # grab the frame from the threaded video file stream
+            if captureQueue.empty():
+                continue
 
-            while self.isStop is False:
-                # grab the frame from the threaded video file stream
-                if captureQueue.empty():
-                    continue
+            keyframe, frame, time = captureQueue.get(False)
 
-                keyframe, frame, time = captureQueue.get(False)
+            self.sendLogMessage(keyframe, "receive_frame")
+            print("Detector consume video {} at keyframe {}".format(
+                self.video_serial, keyframe))
 
-                self.sendLogMessage(keyframe, "receive_frame")
-                print("Detector consume video {} at keyframe {}".format(
-                    self.video_serial, keyframe))
+            # add to neural network detection queue
+            # print("Detector push video {} to detection queue at keyframe {}".format(
+            #     self.video_serial, keyframe))
 
-                # add to neural network detection queue
-                # print("Detector push video {} to detection queue at keyframe {}".format(
-                #     self.video_serial, keyframe))
+            darknet.putLoad(self, keyframe, frame, time)
+            fps.update()
 
-                darknet.putLoad(self, keyframe, frame, time)
-                fps.update()
+            # display the size of the queue on the frame
+            if self.isDisplay:
+                # show the frame and update the FPS counter
+                displayScreen = "video : {}".format(self.video_serial)
+                cv2.imshow(displayScreen, frame)
 
-                # display the size of the queue on the frame
-                if self.isDisplay:
-                    # show the frame and update the FPS counter
-                    displayScreen = "video : {}".format(self.video_serial)
-                    cv2.imshow(displayScreen, frame)
+            # print("Detector of video {} wait at keyframe {}".format(
+            #     self.video_serial, keyframe))
+            cv2.waitKey(1)
 
-                # print("Detector of video {} wait at keyframe {}".format(
-                #     self.video_serial, keyframe))
-                cv2.waitKey(1)
-
-            print("Detector Stopped - {}".format(self.video_serial))
-            fps.stop()
-            streamVideo.stop()
-            cv2.destroyAllWindows()
-        else:
-            self.videoStop()
+        print("Detector Stopped - {}".format(self.video_serial))
+        fps.stop()
+        cv2.destroyAllWindows()
+        self.videoStop()
 
     def stopStream(self):
-        self.isStop = True
-        print("stopStream self.isStop : {}, {} ".format(
-            self.video_serial, self.isStop))
+        self.isStop.value = True
+        print("stopStream {}: isStop - {} ".format(
+            self.video_serial, self.isStop.value))
 
     def updateTarget(self, targetObjects):
         print("new targetObjects - {}".format(targetObjects))

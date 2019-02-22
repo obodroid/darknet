@@ -16,7 +16,7 @@ import base64
 
 
 class StreamVideo(Process):
-    def __init__(self, path, video_serial, queue):
+    def __init__(self, path, video_serial, queue, isStop):
         Process.__init__(self)
         self.daemon = True
         self.path = path
@@ -24,7 +24,7 @@ class StreamVideo(Process):
         self.captureQueue = queue
         self.max_fps = 4.0
         self.fps = None
-        self.stopped = False
+        self.isStop = isStop
         self.dropCount = 0
         self.keyframe = 0
         self.previous_frame_time = datetime.now()
@@ -37,12 +37,9 @@ class StreamVideo(Process):
             print("StreamVideo run VideoCapture at path - {}, fps - {}".format(self.path, self.fps))
         else:
             print("StreamVideo error VideoCapture at path - {}".format(self.path))
-            self.stopped = True
+            self.stop()
 
-        while True:
-            if self.stopped:
-                return
-
+        while self.isStop.value is False:
             self.keyframe += 1
 
             print("StreamVideo captureQueue {}, keyframe {}, qsize: {}".format(
@@ -81,4 +78,4 @@ class StreamVideo(Process):
     def stop(self):
         # indicate that the thread should be stopped
         print("StreamVideo stop VideoCapture - {}".format(self.video_serial))
-        self.stopped = True
+        self.isStop.value = True
