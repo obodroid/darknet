@@ -18,7 +18,7 @@ import json
 from datetime import datetime
 import time
 import base64
-import Queue
+from queue import Queue
 import logging
 # import benchmark
 
@@ -202,9 +202,9 @@ predict_image = lib.network_predict_image
 predict_image.argtypes = [c_void_p, IMAGE]
 predict_image.restype = POINTER(c_float)
 
-configPath = "/src/darknet/cfg/yolov3.cfg"
-weightPath = "/src/data/yolo/yolov3.weights"
-metaPath = "/src/darknet/cfg/coco.data"
+configPath = b"/src/darknet/cfg/yolov3.cfg"
+weightPath = b"/src/data/yolo/yolov3.weights"
+metaPath = b"/src/darknet/cfg/coco.data"
 thresh = .6
 hier_thresh = .5
 nms = .45
@@ -222,7 +222,7 @@ class Darknet():
         self.detectCount = 0
         self.detectRate = 0
         for i in range(self.meta.classes):
-            self.meta.names[i] = self.meta.names[i].replace(' ', '_')
+            self.meta.names[i] = self.meta.names[i].decode().replace(' ', '_').encode()
         self.detectWorker = threading.Thread(target=self.consume)
         self.detectWorker.setDaemon(True)
         self.detectWorker.start()
@@ -321,7 +321,7 @@ class Darknet():
 
         for j in range(num):
             for i in range(self.meta.classes):
-                hasTarget = True if self.meta.names[i] in detector.targetObjects or not detector.targetObjects else False
+                hasTarget = True if self.meta.names[i].decode() in detector.targetObjects or not detector.targetObjects else False
 
                 if dets[j].prob[i] > 0 and hasTarget:
                     b = dets[j].bbox
@@ -345,9 +345,7 @@ class Darknet():
                         retval, jpgImage = cv2.imencode('.jpg', cropImage)
                         base64Image = base64.b64encode(jpgImage)
 
-                        logMsg = "Found {} at keyframe {}: object - {}, prob - {}".format(
-                            video_serial, keyframe, self.meta.names[i], dets[j].prob[i])
-                        print(logMsg)
+                        print("Found {} at keyframe {}: object - {}, prob - {}".format(video_serial, keyframe, self.meta.names[i], dets[j].prob[i]))
 
                         # benchmark.saveImage(cropImage, self.meta.names[i])  # benchmark
 
@@ -356,7 +354,7 @@ class Darknet():
                         # - keyframe.toString().padStart(8, 0)
                         # - targetObject and const wrapType = detectedObject.type.replace(' ', '_');
                         # - Prob threshold or detectedObject.percentage.slice(0, -1) > AI.default.threshold
-                        dataURL = "data:image/jpeg;base64," + base64Image  # dataUrl scheme
+                        dataURL = "data:image/jpeg;base64," + str(base64Image)  # dataUrl scheme
                         msg = {
                             "type": "DETECTED",
                             "robotId": detector.robotId,
@@ -372,7 +370,7 @@ class Darknet():
                                 "w": b.w,
                                 "h": b.h,
                             },
-                            "objectType": self.meta.names[i],
+                            "objectType": self.meta.names[i].decode(),
                             "prob": dets[j].prob[i],
                             "dataURL": dataURL,
                             "frame_time": time.isoformat(),
@@ -420,7 +418,7 @@ def initSaveImage():
 
 darknetWorkers = []
 numWorkers = 1
-detectQueue = Queue.Queue(maxsize=10)
+detectQueue = Queue(maxsize=10)
 detectDropFrames = {}
 
 def putLoad(detector, keyframe, frame, time):

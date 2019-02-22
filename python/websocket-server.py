@@ -1,5 +1,3 @@
-#!/usr/bin/env python2
-#
 # Copyright 2015-2016 Carnegie Mellon University
 # Edited 2018 Obodroid Corporation by Lertlove
 #
@@ -45,13 +43,13 @@ import imagehash
 import json
 from PIL import Image
 import numpy as np
-import StringIO
 import base64
 import time
 from datetime import datetime
 import ssl
-from multiprocessing import Manager
 import threading
+import multiprocessing as mp
+from multiprocessing import Queue
 
 # For TLS connections
 tls_crt = os.path.join(fileDir, 'tls', 'server.crt')
@@ -132,15 +130,15 @@ class DarknetServerProtocol(WebSocketServerProtocol):
             if False:
                 # attach message with maximum size limit
                 msg['response'] = dummyText
-            self.sendMessage(json.dumps(msg))
+            self.detectCallback(msg)
         elif msg['type'] == "READY":
             print("READY - {}".format(video_serial))
-            self.sendMessage(json.dumps(msg))
+            self.detectCallback(msg)
         else:
             print("Warning: Unknown message type: {}".format(msg['type']))
 
     def onClose(self, wasClean, code, reason):
-        for video_serial in self.detectors.keys():
+        for video_serial in list(self.detectors.keys()):
             self.removeDetector(video_serial)
         print("WebSocket connection closed: {0}".format(reason))
 
@@ -177,8 +175,7 @@ class DarknetServerProtocol(WebSocketServerProtocol):
         self.detectors[video_serial] = detectorWorker
 
     def detectCallback(self, msg):
-        # print("detectCallback sendMessage robotId {} videoId {}".format(msg['robotId'], msg['videoId']))
-        reactor.callFromThread(self.sendMessage, json.dumps(msg), sync=True)
+        reactor.callFromThread(self.sendMessage, json.dumps(msg).encode(), sync=True)
     
     def removeDetector(self,video_serial):
         self.detectors[video_serial].stopStream()
@@ -194,7 +191,7 @@ class DarknetServerProtocol(WebSocketServerProtocol):
             'detectQueueSize': darknet.getDetectQueueSize(),
             'detectDropFrames': darknet.getDetectDropFrames(),
         }
-        self.sendMessage(json.dumps(msg))
+        self.detectCallback(msg)
 
 
 def main(reactor):
@@ -215,4 +212,6 @@ def main(reactor):
     return Deferred()
 
 if __name__ == '__main__':
+    mp.set_start_method('spawn', force=True)
+    q = Queue()
     task.react(main)

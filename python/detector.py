@@ -18,7 +18,7 @@ import sys
 import json
 from datetime import datetime
 from PIL import Image
-import StringIO
+from io import StringIO
 import time
 import base64
 import logging
@@ -76,6 +76,7 @@ class Detector(threading.Thread):
 
         captureQueue = Queue(maxsize=10)
         streamVideo = StreamVideo(self.stream, self.video_serial, captureQueue)
+        streamVideo.start()
 
         if streamVideo.stopped is False:
             fps = FPS().start()

@@ -5,7 +5,7 @@ import argparse
 import cv2
 import numpy as np
 import threading
-from multiprocessing import Process
+from multiprocessing import Process, Queue
 import os
 import signal
 import sys
@@ -18,33 +18,28 @@ import base64
 class StreamVideo(Process):
     def __init__(self, path, video_serial, queue):
         Process.__init__(self)
-        # initialize the file video stream along with the boolean
-        # used to indicate if the thread should be stopped or not
-        self.stream = cv2.VideoCapture(path)
+        self.daemon = True
+        self.path = path
         self.video_serial = video_serial
+        self.captureQueue = queue
         self.max_fps = 4.0
+        self.fps = None
+        self.stopped = False
+        self.dropCount = 0
+        self.keyframe = 0
+        self.previous_frame_time = datetime.now()
+
+    def run(self):
+        self.stream = cv2.VideoCapture(self.path)
 
         if self.stream.isOpened():
             self.fps = self.stream.get(cv2.CAP_PROP_FPS)
-            print(
-                "StreamVideo run VideoCapture at path - {}, fps - {}".format(path, self.fps))
-            self.stopped = False
-            self.dropCount = 0
-            self.keyframe = 0
-            self.previous_frame_time = datetime.now()
-            # initialize the queue used to store frames read from the video file
-            self.captureQueue = queue
-            self.fetchWorker = threading.Thread(target=self.update)
-            self.fetchWorker.setDaemon(True)
-            self.fetchWorker.start()
+            print("StreamVideo run VideoCapture at path - {}, fps - {}".format(self.path, self.fps))
         else:
-            print("StreamVideo error VideoCapture at path - {}".format(path))
+            print("StreamVideo error VideoCapture at path - {}".format(self.path))
             self.stopped = True
 
-    def update(self):
-        # keep looping infinitely
         while True:
-            # if the thread indicator variable is set, stop the thread
             if self.stopped:
                 return
 
@@ -61,6 +56,7 @@ class StreamVideo(Process):
             # read the next frame from the file
             # print("StreamVideo start read stream {}".format(self.video_serial))
             (grabbed, frame) = self.stream.read()
+            # print(frame)
             # print("StreamVideo finish read stream {}".format(self.video_serial))
 
             current_frame_time = datetime.now()
@@ -79,6 +75,7 @@ class StreamVideo(Process):
 
             # add the frame to the queue
             self.captureQueue.put((self.keyframe, frame, current_frame_time))
+            # self.captureQueue.put((self.keyframe, current_frame_time))
             self.previous_frame_time = current_frame_time
 
     def stop(self):

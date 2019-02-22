@@ -75,7 +75,7 @@ def saveImage(img,label):
             try:
                 os.makedirs(os.path.dirname(filepath))
             except OSError as exc: # Guard against race condition
-                print "OSError:cannot make directory."
+                print("OSError:cannot make directory")
         cv2.imwrite(filepath,img)
 
 def logInfo(msg):
