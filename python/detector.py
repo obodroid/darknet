@@ -80,10 +80,11 @@ class Detector(threading.Thread):
 
         fps = FPS().start()
         self.videoCaptureReady()
-        
+
         while self.isStop.value is False:
             # grab the frame from the threaded video file stream
             if captureQueue.empty():
+                cv2.waitKey(1)
                 continue
 
             keyframe, frame, time = captureQueue.get(False)
