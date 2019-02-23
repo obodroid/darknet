@@ -6,6 +6,7 @@ import random
 import argparse
 import cv2
 import numpy as np
+import queue
 import threading
 from multiprocessing import Queue, Value
 from random import randint
@@ -86,12 +87,16 @@ class Detector(threading.Thread):
                 cv2.waitKey(1)
                 continue
 
-            keyframe, frame, time = captureQueue.get(False)
+            try:
+                keyframe, frame, frame_time = captureQueue.get(False)
+            except queue.Empty:
+                continue
+                
             self.sendLogMessage(keyframe, "receive_frame")
             # print("Detector {} consume frame at keyframe {}".format(
             #     self.video_serial, keyframe))
 
-            darknet.putLoad(self, keyframe, frame, time)
+            darknet.putLoad(self, keyframe, frame, frame_time)
             # print("Detector {} push frame to detection queue at keyframe {}".format(
             #     self.video_serial, keyframe))
             fps.update()
