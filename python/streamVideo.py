@@ -34,41 +34,38 @@ class StreamVideo(Process):
 
         if self.stream.isOpened():
             self.fps = self.stream.get(cv2.CAP_PROP_FPS)
-            print("StreamVideo run VideoCapture at path - {}, fps - {}".format(self.path, self.fps))
+            print("StreamVideo {} run VideoCapture at path {}, fps {}".format(self.video_serial, self.path, self.fps))
         else:
-            print("StreamVideo error VideoCapture at path - {}".format(self.path))
+            print("StreamVideo {} error VideoCapture at path {}".format(self.video_serial, self.path))
             self.stop()
 
         while self.isStop.value is False:
             self.keyframe += 1
 
-            # print("StreamVideo captureQueue {}, keyframe {}, qsize: {}".format(
+            # print("StreamVideo {} captureQueue at keyframe {}, qsize: {}".format(
             #     self.video_serial, self.keyframe, self.captureQueue.qsize()))
             if self.captureQueue.full():
                 self.dropCount += 1
                 self.captureQueue.get()
-                print("StreamVideo drop queue full frame {}, keyframe {} / drop count {}".format(
+                print("StreamVideo {} drop queue full at keyframe {} / drop count {}".format(
                     self.video_serial, self.keyframe, self.dropCount))
 
-            # print("StreamVideo start read stream {}".format(self.video_serial))
+            # print("StreamVideo {} start read stream".format(self.video_serial))
             (grabbed, frame) = self.stream.read()
-            # print("StreamVideo finish read stream {}".format(self.video_serial))
+            # print("StreamVideo {} finish read stream".format(self.video_serial))
 
             current_frame_time = datetime.now()
             diff_from_previous_frame = (current_frame_time - self.previous_frame_time).total_seconds()
             if diff_from_previous_frame < (1.0 / self.max_fps):
                 self.dropCount += 1
-                # print("StreamVideo drop high fps frame {}, keyframe {} / drop count {} / time diff {}".format(
+                # print("StreamVideo {} drop high fps frame at keyframe {} / drop count {} / time diff {}".format(
                 #     self.video_serial, self.keyframe, self.dropCount, diff_from_previous_frame))
                 continue
 
-            # if the `grabbed` boolean is `False`, then we have
-            # reached the end of the video file
             if not grabbed:
                 self.stop()
                 return
 
-            # add the frame to the queue
             self.captureQueue.put((self.keyframe, frame, current_frame_time))
             self.previous_frame_time = current_frame_time
 
@@ -77,8 +74,8 @@ class StreamVideo(Process):
 
         self.captureQueue.close()
         self.stream.release()
+        print("StreamVideo {} exit".format(self.video_serial))
 
     def stop(self):
-        # indicate that the thread should be stopped
-        print("StreamVideo stop VideoCapture - {}".format(self.video_serial))
+        print("StreamVideo {} stop".format(self.video_serial))
         self.isStop.value = True

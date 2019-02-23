@@ -59,7 +59,7 @@ class Detector(threading.Thread):
         self.isStop = Value(c_bool, False)
 
         threading.Thread.__init__(self)
-        print ("Detector Initialized - {}".format(self.video_serial))
+        print ("Detector Initialized {}".format(self.video_serial))
 
     def run(self):
         head = "data:image/jpeg;base64,"
@@ -82,46 +82,40 @@ class Detector(threading.Thread):
         self.videoCaptureReady()
 
         while self.isStop.value is False:
-            # grab the frame from the threaded video file stream
             if captureQueue.empty():
                 cv2.waitKey(1)
                 continue
 
             keyframe, frame, time = captureQueue.get(False)
-
             self.sendLogMessage(keyframe, "receive_frame")
-            print("Detector consume video {} at keyframe {}".format(
-                self.video_serial, keyframe))
-
-            # add to neural network detection queue
-            # print("Detector push video {} to detection queue at keyframe {}".format(
+            # print("Detector {} consume frame at keyframe {}".format(
             #     self.video_serial, keyframe))
 
             darknet.putLoad(self, keyframe, frame, time)
+            # print("Detector {} push frame to detection queue at keyframe {}".format(
+            #     self.video_serial, keyframe))
             fps.update()
 
-            # display the size of the queue on the frame
             if self.isDisplay:
-                # show the frame and update the FPS counter
                 displayScreen = "video : {}".format(self.video_serial)
                 cv2.imshow(displayScreen, frame)
 
-            # print("Detector of video {} wait at keyframe {}".format(
+            # print("Detector {} wait at keyframe {}".format(
             #     self.video_serial, keyframe))
             cv2.waitKey(1)
 
-        print("Detector Stopped - {}".format(self.video_serial))
         fps.stop()
         cv2.destroyAllWindows()
         self.videoStop()
+        print("Detector {} Stopped".format(self.video_serial))
 
     def stopStream(self):
         self.isStop.value = True
-        print("stopStream {}: isStop - {} ".format(
+        print("Detector {} stopStream: isStop {} ".format(
             self.video_serial, self.isStop.value))
 
     def updateTarget(self, targetObjects):
-        print("new targetObjects - {}".format(targetObjects))
+        print("Detector {} updateTarget".format(targetObjects))
         self.targetObjects = targetObjects
 
     def videoCaptureReady(self):
