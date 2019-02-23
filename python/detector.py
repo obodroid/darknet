@@ -107,6 +107,7 @@ class Detector(threading.Thread):
         fps.stop()
         cv2.destroyAllWindows()
         self.videoStop()
+        streamVideo.join()
         print("Detector {} Stopped".format(self.video_serial))
 
     def stopStream(self):
