@@ -214,12 +214,13 @@ isNeedSaveImage = True
 fullImageDir = "/tmp/.robot-app/full_images"
 
 class Darknet(Process):
-    def __init__(self, index, detectQueue, resultQueue):
+    def __init__(self, index, numGpus, detectQueue, resultQueue):
         Process.__init__(self)
         self.daemon = True
         self.net = None
         self.meta = None
         self.index = index
+        self.numGpus = numGpus
         self.detectCount = 0
         self.detectRate = Value('i', 0)
         self.detectQueue = detectQueue
@@ -227,6 +228,9 @@ class Darknet(Process):
         self.monitorDetectRate()
 
     def run(self):
+        gpuIndex = (self.index % self.numGpus) + 1
+        set_gpu(gpuIndex)
+        print("Load darknet worker = {} with gpuIndex = {}".format(self.index, gpuIndex))
         self.net = load_net(configPath, weightPath, 0)
         self.meta = load_meta(metaPath)
         for i in range(self.meta.classes):
@@ -419,19 +423,12 @@ def initSaveImage():
                 os.remove(fullImageDir+"/"+fileName)
 
 darknetWorkers = []
-numWorkers = 1
 
-def initDarknetWorkers(_numWorkers, _numGpus, detectQueue, resultQueue):
-    global numWorkers
-
-    numWorkers = _numWorkers
-    print("darknet numWorkers : {}, numGpus : {}".format(_numWorkers, _numGpus))
+def initDarknetWorkers(numWorkers, numGpus, detectQueue, resultQueue):
+    print("darknet numWorkers : {}, numGpus : {}".format(numWorkers, numGpus))
 
     for i in range(numWorkers):
-        gpuIndex = (i % _numGpus) + 1
-        set_gpu(gpuIndex)
-        print("Load Darknet worker = {} with gpuIndex = {}".format(i, gpuIndex))
-        worker = Darknet(i, detectQueue, resultQueue)
+        worker = Darknet(i, numGpus, detectQueue, resultQueue)
         darknetWorkers.append(worker)
         worker.start()
         print("darknet worker {} started".format(i))
