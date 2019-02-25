@@ -85,7 +85,7 @@ class Detector(threading.Thread):
             self.video_serial, self.isStop.value))
 
     def updateTarget(self, targetObjects):
-        print("Detector {} updateTarget".format(targetObjects))
+        print("Detector {} updateTarget {}".format(self.video_serial, targetObjects))
         self.targetObjects = targetObjects
 
     def videoCaptureReady(self):

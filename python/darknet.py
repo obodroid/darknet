@@ -214,7 +214,7 @@ isNeedSaveImage = True
 fullImageDir = "/tmp/.robot-app/full_images"
 
 class Darknet(Process):
-    def __init__(self, index, detectQueue):
+    def __init__(self, index, detectQueue, resultQueue):
         Process.__init__(self)
         self.daemon = True
         self.net = None
@@ -223,6 +223,7 @@ class Darknet(Process):
         self.detectCount = 0
         self.detectRate = Value('i', 0)
         self.detectQueue = detectQueue
+        self.resultQueue = resultQueue
         self.monitorDetectRate()
 
     def run(self):
@@ -296,7 +297,7 @@ class Darknet(Process):
 
     def nnDetect(self, video_serial, keyframe, frame, time):
         print("darknet {} nnDetect {}, keyframe {}".format(self.index, video_serial, keyframe))
-
+        robotId, videoId = video_serial.split('-')
         # red for palmup --> stop, green for thumbsup --> go
         # classes_box_colors = [(0, 0, 255), (0, 255, 0)]
         # classes_font_colors = [(255, 255, 0), (0, 255, 255)]
@@ -358,8 +359,8 @@ class Darknet(Process):
                         dataURL = "data:image/jpeg;base64," + str(base64Image)  # dataUrl scheme
                         msg = {
                             "type": "DETECTED",
-                            # "robotId": detector.robotId,
-                            # "videoId": detector.videoId,
+                            "robotId": robotId,
+                            "videoId": videoId,
                             "keyframe": keyframe,
                             "frame": {
                                 "width": im.w,
@@ -378,7 +379,7 @@ class Darknet(Process):
                             "detect_time": datetime.now().isoformat(),
                         }
                         foundObject = True
-                        # detector.callback(msg)
+                        self.resultQueue.put(msg)
         
         if isinstance(arr, bytes):
             free_image(im)
@@ -420,7 +421,7 @@ def initSaveImage():
 darknetWorkers = []
 numWorkers = 1
 
-def initDarknetWorkers(_numWorkers, _numGpus, detectQueue):
+def initDarknetWorkers(_numWorkers, _numGpus, detectQueue, resultQueue):
     global numWorkers
 
     numWorkers = _numWorkers
@@ -430,7 +431,7 @@ def initDarknetWorkers(_numWorkers, _numGpus, detectQueue):
         gpuIndex = (i % _numGpus) + 1
         set_gpu(gpuIndex)
         print("Load Darknet worker = {} with gpuIndex = {}".format(i, gpuIndex))
-        worker = Darknet(i, detectQueue)
+        worker = Darknet(i, detectQueue, resultQueue)
         darknetWorkers.append(worker)
         worker.start()
         print("darknet worker {} started".format(i))

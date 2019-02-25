@@ -78,6 +78,7 @@ class DarknetServerProtocol(WebSocketServerProtocol):
         self.numGpus = 1
         self.detectors = {}
         self.detectQueue = Queue(maxsize=10)
+        self.resultQueue = Queue()
 
     def onConnect(self, request):
         print("Client connecting: {0}".format(request.peer))
@@ -98,6 +99,10 @@ class DarknetServerProtocol(WebSocketServerProtocol):
             if msg['debug']:
                 benchmark.enable = True
 
+            t = threading.Thread(target=self.loopSendResult)
+            t.setDaemon(True)
+            t.start()
+            
             self.monitor(0.5)
             
             global darknetIsInit
@@ -105,7 +110,7 @@ class DarknetServerProtocol(WebSocketServerProtocol):
             if not darknetIsInit:
                 darknetIsInit = True
                 darknet.initSaveImage()
-                darknet.initDarknetWorkers(self.numWorkers, self.numGpus, self.detectQueue)
+                darknet.initDarknetWorkers(self.numWorkers, self.numGpus, self.detectQueue, self.resultQueue)
             return
 
         robotId = msg['robotId']
@@ -178,9 +183,16 @@ class DarknetServerProtocol(WebSocketServerProtocol):
     def detectCallback(self, msg):
         reactor.callFromThread(self.sendMessage, json.dumps(msg).encode(), sync=True)
     
-    def removeDetector(self,video_serial):
+    def removeDetector(self, video_serial):
         self.detectors[video_serial].stopStream()
         del self.detectors[video_serial]
+
+    def loopSendResult(self):
+        while True:
+            if not self.resultQueue.empty():
+                msg = self.resultQueue.get()
+                self.detectCallback(msg)
+            cv2.waitKey(1)
 
     def monitor(self, interval):
         t = threading.Timer(interval, self.monitor, [interval])
