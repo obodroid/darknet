@@ -77,6 +77,7 @@ class DarknetServerProtocol(WebSocketServerProtocol):
         self.numWorkers = 1
         self.numGpus = 1
         self.detectors = {}
+        self.detectQueue = Queue(maxsize=10)
 
     def onConnect(self, request):
         print("Client connecting: {0}".format(request.peer))
@@ -104,7 +105,7 @@ class DarknetServerProtocol(WebSocketServerProtocol):
             if not darknetIsInit:
                 darknetIsInit = True
                 darknet.initSaveImage()
-                darknet.initDarknetWorkers(self.numWorkers, self.numGpus)
+                darknet.initDarknetWorkers(self.numWorkers, self.numGpus, self.detectQueue)
             return
 
         robotId = msg['robotId']
@@ -169,7 +170,7 @@ class DarknetServerProtocol(WebSocketServerProtocol):
 
         print("processVideo {}".format(video_serial))
         detectorWorker = detector.Detector(
-            robotId, videoId, stream, threshold, self.detectCallback)
+            robotId, videoId, stream, threshold, self.detectCallback, self.detectQueue)
         detectorWorker.setDaemon(True)
         detectorWorker.start()
         self.detectors[video_serial] = detectorWorker
@@ -188,8 +189,7 @@ class DarknetServerProtocol(WebSocketServerProtocol):
         msg = {
             'type': 'MONITOR',
             'detectRates': darknet.getDetectRates(),
-            'detectQueueSize': darknet.getDetectQueueSize(),
-            'detectDropFrames': darknet.getDetectDropFrames(),
+            'detectQueueSize': self.detectQueue.qsize(),
         }
         self.detectCallback(msg)
 

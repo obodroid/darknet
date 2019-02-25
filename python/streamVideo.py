@@ -16,18 +16,26 @@ import base64
 
 
 class StreamVideo(Process):
-    def __init__(self, path, video_serial, queue, isStop):
+    def __init__(self, path, video_serial, isStop, detectQueue):
         Process.__init__(self)
         self.daemon = True
         self.path = path
         self.video_serial = video_serial
-        self.captureQueue = queue
         self.max_fps = 4.0
         self.fps = None
         self.isStop = isStop
+        self.isDisplay = False
         self.dropCount = 0
         self.keyframe = 0
         self.previous_frame_time = datetime.now()
+        self.detectQueue = detectQueue
+
+    def putLoad(self, videoSerial, keyframe, frame, time):
+        print("darknet detectQueue qsize: {}".format(self.detectQueue.qsize()))
+        if self.detectQueue.full():
+            dropVideoSerial, _, _, _ = self.detectQueue.get()
+            print("darknet drop frame {}, keyframe {}".format(dropVideoSerial, keyframe))
+        self.detectQueue.put([videoSerial, keyframe, frame, time])
 
     def run(self):
         self.stream = cv2.VideoCapture(self.path)
@@ -39,16 +47,9 @@ class StreamVideo(Process):
             print("StreamVideo {} error VideoCapture at path {}".format(self.video_serial, self.path))
             self.stop()
 
+        # fps = FPS().start()
         while self.isStop.value is False:
             self.keyframe += 1
-
-            # print("StreamVideo {} captureQueue at keyframe {}, qsize: {}".format(
-            #     self.video_serial, self.keyframe, self.captureQueue.qsize()))
-            if self.captureQueue.full():
-                self.dropCount += 1
-                self.captureQueue.get()
-                print("StreamVideo {} drop queue full at keyframe {} / drop count {}".format(
-                    self.video_serial, self.keyframe, self.dropCount))
 
             # print("StreamVideo {} start read stream".format(self.video_serial))
             (grabbed, frame) = self.stream.read()
@@ -66,13 +67,15 @@ class StreamVideo(Process):
                 self.stop()
                 return
 
-            self.captureQueue.put((self.keyframe, frame, current_frame_time))
+            # if self.isDisplay:
+            #     displayScreen = "video : {}".format(self.video_serial)
+            #     cv2.imshow(displayScreen, frame)
+
+            self.putLoad(self.video_serial, self.keyframe, frame, current_frame_time)
             self.previous_frame_time = current_frame_time
+            sys.stdout.flush()
 
-        while not self.captureQueue.empty():
-            self.captureQueue.get()
-
-        self.captureQueue.close()
+        # fps.stop()
         self.stream.release()
         print("StreamVideo {} exit".format(self.video_serial))
 

@@ -1,6 +1,4 @@
-import darknet
 from ctypes import *
-from imutils.video import FPS
 import math
 import random
 import argparse
@@ -8,7 +6,7 @@ import cv2
 import numpy as np
 import queue
 import threading
-from multiprocessing import Queue, Value
+from multiprocessing import Value
 from random import randint
 from threading import Timer
 from twisted.internet import task, reactor, threads
@@ -47,17 +45,16 @@ sys.path.append(os.path.join(fileDir, ".."))
 
 
 class Detector(threading.Thread):
-    def __init__(self, robotId, videoId, stream, threshold, callback):
-        # TODO handle irregular case, end of stream
+    def __init__(self, robotId, videoId, stream, threshold, callback, detectQueue):
         self.threshold = threshold
         self.robotId = robotId
         self.videoId = videoId
         self.stream = stream
         self.video_serial = robotId + "-" + videoId
         self.callback = callback
-        self.isDisplay = False  # TODO should receive args to display or not
         self.targetObjects = []
         self.isStop = Value(c_bool, False)
+        self.detectQueue = detectQueue
 
         threading.Thread.__init__(self)
         print ("Detector Initialized {}".format(self.video_serial))
@@ -75,44 +72,11 @@ class Detector(threading.Thread):
             darknet.putLoad(self, self.keyframe, frame)
             return
 
-        captureQueue = Queue(maxsize=10)
-        streamVideo = StreamVideo(self.stream, self.video_serial, captureQueue, self.isStop)
+        streamVideo = StreamVideo(self.stream, self.video_serial, self.isStop, self.detectQueue)
         streamVideo.start()
-
-        fps = FPS().start()
         self.videoCaptureReady()
-
-        while self.isStop.value is False:
-            if captureQueue.empty():
-                cv2.waitKey(1)
-                continue
-
-            try:
-                keyframe, frame, frame_time = captureQueue.get(False)
-            except queue.Empty:
-                continue
-                
-            self.sendLogMessage(keyframe, "receive_frame")
-            # print("Detector {} consume frame at keyframe {}".format(
-            #     self.video_serial, keyframe))
-
-            darknet.putLoad(self, keyframe, frame, frame_time)
-            # print("Detector {} push frame to detection queue at keyframe {}".format(
-            #     self.video_serial, keyframe))
-            fps.update()
-
-            if self.isDisplay:
-                displayScreen = "video : {}".format(self.video_serial)
-                cv2.imshow(displayScreen, frame)
-
-            # print("Detector {} wait at keyframe {}".format(
-            #     self.video_serial, keyframe))
-            cv2.waitKey(1)
-
-        fps.stop()
-        cv2.destroyAllWindows()
-        self.videoStop()
         streamVideo.join()
+        self.videoStop()
         print("Detector {} Stopped".format(self.video_serial))
 
     def stopStream(self):
