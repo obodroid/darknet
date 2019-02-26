@@ -241,10 +241,8 @@ class Darknet(Process):
         self.monitorDetectRate()
 
         while True:
-            if not self.detectQueue.empty():
-                video_serial, keyframe, frame, time = self.detectQueue.get()
-                frame = self.nnDetect(video_serial, keyframe, frame, time)
-            cv2.waitKey(1)
+            video_serial, keyframe, frame, time = self.detectQueue.get()
+            self.nnDetect(video_serial, keyframe, frame, time)
             sys.stdout.flush()
 
     def monitorDetectRate(self):
@@ -303,6 +301,7 @@ class Darknet(Process):
     #     return res
 
     def nnDetect(self, video_serial, keyframe, frame, time):
+        self.detectCount += 1
         print("darknet {} nnDetect {}, keyframe {}".format(self.index, video_serial, keyframe))
         robotId, videoId = video_serial.split('-')
         # red for palmup --> stop, green for thumbsup --> go
@@ -395,10 +394,6 @@ class Darknet(Process):
         if isNeedSaveImage and foundObject:
             t = threading.Thread(target=saveImage, args=(filepath, frame))
             t.start()
-            t.join()
-
-        self.detectCount += 1
-        return frame
 
 
 def array_to_image(arr):
