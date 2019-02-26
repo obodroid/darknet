@@ -226,7 +226,6 @@ class Darknet(Process):
         self.detectRate = Value('i', 0)
         self.detectQueue = detectQueue
         self.resultQueue = resultQueue
-        self.monitorDetectRate()
 
     def run(self):
         setproctitle.setproctitle("Darknet {}".format(self.index))
@@ -238,6 +237,8 @@ class Darknet(Process):
         for i in range(self.meta.classes):
             self.meta.names[i] = self.meta.names[i].decode().replace(' ', '_').encode()
         print("darknet {} initialized".format(self.index))
+
+        self.monitorDetectRate()
 
         while True:
             if not self.detectQueue.empty():
