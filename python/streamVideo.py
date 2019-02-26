@@ -6,6 +6,7 @@ import cv2
 import numpy as np
 import threading
 from multiprocessing import Process, Queue
+import setproctitle
 import os
 import signal
 import sys
@@ -38,6 +39,7 @@ class StreamVideo(Process):
         self.detectQueue.put([videoSerial, keyframe, frame, time])
 
     def run(self):
+        setproctitle.setproctitle("Stream Video {}".format(self.video_serial))
         self.stream = cv2.VideoCapture(self.path)
 
         if self.stream.isOpened():

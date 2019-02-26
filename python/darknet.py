@@ -11,6 +11,7 @@ from random import randint
 from threading import Timer
 from twisted.internet import task, reactor, threads
 from twisted.internet.defer import Deferred, inlineCallbacks
+import setproctitle
 import os
 import signal
 import sys
@@ -228,6 +229,7 @@ class Darknet(Process):
         self.monitorDetectRate()
 
     def run(self):
+        setproctitle.setproctitle("Darknet {}".format(self.index))
         gpuIndex = (self.index % self.numGpus) + 1
         set_gpu(gpuIndex)
         print("Load darknet worker = {} with gpuIndex = {}".format(self.index, gpuIndex))
