@@ -32,10 +32,10 @@ class StreamVideo(Process):
         self.detectQueue = detectQueue
 
     def putLoad(self, videoSerial, keyframe, frame, time):
-        print("darknet detectQueue qsize: {}".format(self.detectQueue.qsize()))
+        print("StreamVideo detectQueue qsize: {}".format(self.detectQueue.qsize()))
         if self.detectQueue.full():
-            dropVideoSerial, _, _, _ = self.detectQueue.get()
-            print("darknet drop frame {}, keyframe {}".format(dropVideoSerial, keyframe))
+            print("StreamVideo drop frame {}, keyframe {}".format(videoSerial, keyframe))
+            return
         self.detectQueue.put([videoSerial, keyframe, frame, time])
 
     def run(self):
