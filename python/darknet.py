@@ -305,8 +305,8 @@ class Darknet(Process):
         print("darknet {} nnDetect {}, keyframe {}".format(self.index, video_serial, keyframe))
         robotId, videoId = video_serial.split('-')
         # red for palmup --> stop, green for thumbsup --> go
-        # classes_box_colors = [(0, 0, 255), (0, 255, 0)]
-        # classes_font_colors = [(255, 255, 0), (0, 255, 255)]
+        classes_box_colors = [(0, 0, 255), (0, 255, 0)]
+        classes_font_colors = [(255, 255, 0), (0, 255, 255)]
 
         rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         im, arr = array_to_image(rgb_frame)
@@ -345,7 +345,7 @@ class Darknet(Process):
 
                     # if need to show rectangular bounding box and text, you can uncomment here
                     # cv2.rectangle(frame, (x1, y1), (x2, y2), classes_box_colors[1], 2)
-                    # cv2.putText(frame, self.meta.names[i], (x1, y1 - 20), 1, 1, classes_font_colors[0], 2, cv2.LINE_AA)
+                    # cv2.putText(frame, self.meta.names[i].decode(), (x1, y1 - 20), 1, 1, classes_font_colors[0], 2, cv2.LINE_AA)
 
                     cropImage = frame[y1:y2, x1:x2]
                     height, width, channels = cropImage.shape
