@@ -54,6 +54,7 @@ class Detector(threading.Thread):
         self.callback = callback
         self.targetObjects = []
         self.isStop = Value(c_bool, False)
+        self.dropFrameCount = Value('i', 0)
         self.detectQueue = detectQueue
 
         threading.Thread.__init__(self)
@@ -72,7 +73,7 @@ class Detector(threading.Thread):
             darknet.putLoad(self, self.keyframe, frame)
             return
 
-        streamVideo = StreamVideo(self.stream, self.video_serial, self.isStop, self.detectQueue)
+        streamVideo = StreamVideo(self.stream, self.video_serial, self.isStop, self.dropFrameCount, self.detectQueue)
         streamVideo.start()
         self.videoCaptureReady()
         streamVideo.join()

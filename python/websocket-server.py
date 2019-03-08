@@ -198,9 +198,15 @@ class DarknetServerProtocol(WebSocketServerProtocol):
         t = threading.Timer(interval, self.monitor, [interval])
         t.setDaemon(True)
         t.start()
+
+        detectDropFrames = {}
+        for video_serial in self.detectors:
+            detectDropFrames[video_serial] = self.detectors[video_serial].dropFrameCount.value
+
         msg = {
             'type': 'MONITOR',
             'detectRates': darknet.getDetectRates(),
+            'detectDropFrames': detectDropFrames,
             'detectQueueSize': self.detectQueue.qsize(),
         }
         self.detectCallback(msg)
