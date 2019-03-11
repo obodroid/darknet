@@ -189,9 +189,11 @@ class DarknetServerProtocol(WebSocketServerProtocol):
 
     def loopSendResult(self):
         while True:
-            if not self.resultQueue.empty():
-                msg = self.resultQueue.get()
-                self.detectCallback(msg)
+            while not self.resultQueue.empty():
+                robotId, videoId, objectType, msg = self.resultQueue.get()
+                video_serial = robotId + "-" + videoId
+                if objectType in self.detectors[video_serial].targetObjects:
+                    self.detectCallback(msg)
             cv2.waitKey(1)
 
     def monitor(self, interval):

@@ -328,10 +328,8 @@ class Darknet(Process):
 
         for j in range(num):
             for i in range(self.meta.classes):
-                # hasTarget = True if self.meta.names[i].decode() in detector.targetObjects or not detector.targetObjects else False
-                hasTarget = True
-
-                if dets[j].prob[i] > 0 and hasTarget:
+                objectType = self.meta.names[i].decode()
+                if dets[j].prob[i] > 0:
                     b = dets[j].bbox
                     x1 = int(b.x - b.w / 2.)
                     y1 = int(b.y - b.h / 2.)
@@ -378,14 +376,14 @@ class Darknet(Process):
                                 "w": b.w,
                                 "h": b.h,
                             },
-                            "objectType": self.meta.names[i].decode(),
+                            "objectType": objectType,
                             "prob": dets[j].prob[i],
                             "dataURL": dataURL,
                             "frame_time": time.isoformat(),
                             "detect_time": datetime.now().isoformat(),
                         }
                         foundObject = True
-                        self.resultQueue.put(msg)
+                        self.resultQueue.put([robotId, videoId, objectType, msg])
         
         if isinstance(arr, bytes):
             free_image(im)
