@@ -15,6 +15,7 @@ opencv/
 convnet/
 decaf/
 submission/
+venv/
 darknet
 .fuse*
 
@@ -29,3 +30,4 @@ Thumbs.db
 
 libdarknet.a
 libdarknet.so
+*.weights
