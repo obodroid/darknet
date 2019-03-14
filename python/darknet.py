@@ -230,7 +230,7 @@ class Darknet(Process):
 
     def run(self):
         setproctitle.setproctitle("Darknet {}".format(self.index))
-        gpuIndex = (self.index % self.numGpus) + 1
+        gpuIndex = (self.index % self.numGpus) + ((int(os.environ['CONTAINER_INDEX']) - 1) * self.numGpus) + 1
         set_gpu(gpuIndex)
         print("Load darknet worker = {} with gpuIndex = {}".format(self.index, gpuIndex))
         self.net = load_net(configPath, weightPath, 0)
