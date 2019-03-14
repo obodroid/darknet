@@ -226,6 +226,7 @@ class Darknet(Process):
         self.detectRate = Value('i', 0)
         self.detectQueue = detectQueue
         self.resultQueue = resultQueue
+        self.isStop = Value(c_bool, False)
 
     def run(self):
         setproctitle.setproctitle("Darknet {}".format(self.index))
@@ -240,7 +241,7 @@ class Darknet(Process):
 
         self.monitorDetectRate()
 
-        while True:
+        while not self.isStop.value:
             video_serial, keyframe, frame, time = self.detectQueue.get()
             self.nnDetect(video_serial, keyframe, frame, time)
             sys.stdout.flush()
@@ -416,7 +417,7 @@ def initSaveImage():
         else:
             fileList = os.listdir(fullImageDir)
             for fileName in fileList:
-                os.remove(fullImageDir+"/"+fileName)
+                os.remove(fullImageDir + "/" + fileName)
 
 darknetWorkers = []
 
@@ -428,6 +429,11 @@ def initDarknetWorkers(numWorkers, numGpus, detectQueue, resultQueue):
         darknetWorkers.append(worker)
         worker.start()
         print("darknet worker {} started".format(i))
+
+def deinitDarknetWorkers():
+    for worker in darknetWorkers:
+        print("darknet worker {} stopped".format(worker.index))
+        worker.isStop.value = True
 
 def getDetectRates():
     detectRates = []

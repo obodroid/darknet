@@ -68,8 +68,6 @@ dummyText = ''
 for i in range(0, 8300000):
     dummyText += str(1)
 
-darknetIsInit = False
-
 class DarknetServerProtocol(WebSocketServerProtocol):
     def __init__(self):
         super(DarknetServerProtocol, self).__init__()
@@ -105,12 +103,8 @@ class DarknetServerProtocol(WebSocketServerProtocol):
             
             self.monitor(0.5)
             
-            global darknetIsInit
-            print("server darknetIsInit - {}".format(darknetIsInit))
-            if not darknetIsInit:
-                darknetIsInit = True
-                darknet.initSaveImage()
-                darknet.initDarknetWorkers(self.numWorkers, self.numGpus, self.detectQueue, self.resultQueue)
+            darknet.initSaveImage()
+            darknet.initDarknetWorkers(self.numWorkers, self.numGpus, self.detectQueue, self.resultQueue)
             return
 
         robotId = msg['robotId']
@@ -146,6 +140,7 @@ class DarknetServerProtocol(WebSocketServerProtocol):
     def onClose(self, wasClean, code, reason):
         for video_serial in list(self.detectors.keys()):
             self.removeDetector(video_serial)
+        darknet.deinitDarknetWorkers()
         print("WebSocket connection closed: {0}".format(reason))
 
     def processImage(self, msg):
