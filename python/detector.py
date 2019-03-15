@@ -17,7 +17,7 @@ import sys
 import json
 from datetime import datetime
 from PIL import Image
-from io import StringIO
+from io import BytesIO
 import time
 import base64
 import logging
@@ -65,12 +65,12 @@ class Detector(threading.Thread):
         if self.stream.startswith(head):
             print("Detector consume image {}".format(self.video_serial))
             imgData = base64.b64decode(self.stream[len(head):])
-            imgStr = StringIO.StringIO()
+            imgStr = BytesIO()
             imgStr.write(imgData)
             imgStr.seek(0)
             imgPIL = Image.open(imgStr)
             frame = cv2.cvtColor(np.asarray(imgPIL), cv2.COLOR_RGB2BGR)
-            darknet.putLoad(self, self.keyframe, frame)
+            self.detectQueue.put([self.video_serial, 1, frame, datetime.now()])
             return
 
         streamVideo = StreamVideo(self.stream, self.video_serial, self.isStop, self.dropFrameCount, self.detectQueue)
