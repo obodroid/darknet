@@ -242,8 +242,11 @@ class Darknet(Process):
         self.monitorDetectRate()
 
         while not self.isStop.value:
-            video_serial, keyframe, frame, time = self.detectQueue.get()
-            self.nnDetect(video_serial, keyframe, frame, time)
+            try:
+                video_serial, keyframe, frame, time = self.detectQueue.get(timeout=0.1)
+                self.nnDetect(video_serial, keyframe, frame, time)
+            except Exception:
+                pass
             sys.stdout.flush()
 
     def monitorDetectRate(self):
@@ -434,6 +437,7 @@ def deinitDarknetWorkers():
     for worker in darknetWorkers:
         print("darknet worker {} stopped".format(worker.index))
         worker.isStop.value = True
+    darknetWorkers.clear()
 
 def getDetectRates():
     detectRates = []
