@@ -22,6 +22,13 @@ import base64
 import logging
 # import benchmark
 
+from deep_sort import preprocessing
+from deep_sort import nn_matching
+from deep_sort.detection import Detection
+from deep_sort.tracker import Tracker
+from tools import generate_detections as gdet
+from deep_sort.detection import Detection as ddet
+
 fileDir = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(fileDir, ".."))
 
@@ -205,6 +212,7 @@ predict_image.restype = POINTER(c_float)
 configPath = b"/src/darknet/cfg/yolov3.cfg"
 weightPath = b"/src/data/yolo/yolov3.weights"
 metaPath = b"/src/darknet/cfg/coco.data"
+imgEncPath = b"/src/data/deep_sort/mars-small128.pb"
 thresh = .6
 hier_thresh = .5
 nms = .45
@@ -220,6 +228,8 @@ class Darknet(Process):
         self.daemon = True
         self.net = None
         self.meta = None
+        self.encoder = None
+        self.tracker = None
         self.index = index
         self.numGpus = numGpus
         self.detectCount = 0
@@ -238,6 +248,15 @@ class Darknet(Process):
         for i in range(self.meta.classes):
             self.meta.names[i] = self.meta.names[i].decode().replace(' ', '_').encode()
         print("darknet {} initialized".format(self.index))
+
+        # Definition of the parameters
+        max_cosine_distance = 0.3
+        nn_budget = None
+        
+        # deep_sort 
+        self.encoder = gdet.create_box_encoder(imgEncPath, batch_size=1)
+        metric = nn_matching.NearestNeighborDistanceMetric("cosine", max_cosine_distance, nn_budget)
+        self.tracker = Tracker(metric)
 
         self.monitorDetectRate()
 
@@ -330,6 +349,11 @@ class Darknet(Process):
         if (nms):
             do_nms_obj(dets, num, self.meta.classes, nms)
 
+        bboxes = []
+        confidences = []
+        objectTypes = []
+        dataURLs = []
+
         for j in range(num):
             for i in range(self.meta.classes):
                 objectType = self.meta.names[i].decode()
@@ -364,31 +388,82 @@ class Darknet(Process):
                         # - keyframe.toString().padStart(8, 0)
                         # - targetObject and const wrapType = detectedObject.type.replace(' ', '_');
                         # - Prob threshold or detectedObject.percentage.slice(0, -1) > AI.default.threshold
-                        dataURL = "data:image/jpeg;base64," + str(base64Image)  # dataUrl scheme
-                        msg = {
-                            "type": "DETECTED",
-                            "robotId": robotId,
-                            "videoId": videoId,
-                            "keyframe": keyframe,
-                            "frame": {
-                                "width": im.w,
-                                "height": im.h,
-                            },
-                            "bbox": {
-                                "x": x1,
-                                "y": y1,
-                                "w": b.w,
-                                "h": b.h,
-                            },
-                            "objectType": objectType,
-                            "prob": dets[j].prob[i],
-                            "dataURL": dataURL,
-                            "frame_time": time.isoformat(),
-                            "detect_time": datetime.now().isoformat(),
-                        }
+                        dataURL = "data:image/jpeg;base64," + str(base64Image)  # dataURL scheme
+                        bbox = [x1, y1, b.w, b.h]
+                        bboxes.append(bbox)
+                        confidences.append(dets[j].prob[i])
+                        objectTypes.append(objectType)
+                        dataURLs.append(dataURL)
                         foundObject = True
-                        self.resultQueue.put([robotId, videoId, objectType, msg])
         
+        features = self.encoder(frame, bboxes)
+        detections = [Detection(bbox, confidence, feature) for bbox, confidence, feature in zip(bboxes, confidences, features)]
+
+        # Run non-maxima suppression.
+        boxes = np.array([d.tlwh for d in detections])
+        scores = np.array([d.confidence for d in detections])
+        nms_max_overlap = 1.0
+        indices = preprocessing.non_max_suppression(boxes, nms_max_overlap, scores)
+        detections = [detections[i] for i in indices]
+
+        # Call the tracker
+        self.tracker.predict()
+        self.tracker.update(detections)
+        
+        tracking = []
+
+        for track in self.tracker.tracks:
+            if not track.is_confirmed() or track.time_since_update > 1:
+                continue
+
+            bbox = track.to_tlwh()
+            tracking.append({
+                "track_id": str(track.track_id),
+                "bbox": {
+                    "x": bbox[0],
+                    "y": bbox[1],
+                    "w": bbox[2],
+                    "h": bbox[3],
+                },
+            })
+            # bbox = track.to_tlbr()
+            # cv2.rectangle(frame, (int(bbox[0]), int(bbox[1])), (int(bbox[2]), int(bbox[3])),(255,255,255), 2)
+            # cv2.putText(frame, str(track.track_id),(int(bbox[0]), int(bbox[1])),0, 5e-3 * 200, (0,255,0),2)
+
+        detectedObjects = []
+        for bbox, confidence, objectType, dataURL in zip(bboxes, confidences, objectTypes, dataURLs):
+            detectedObjects.append({
+                "bbox": {
+                    "x": bbox[0],
+                    "y": bbox[1],
+                    "w": bbox[2],
+                    "h": bbox[3],
+                },
+                "confidence": confidence,
+                "objectType": objectType,
+                "dataURL": dataURL,
+            })
+
+        msg = {
+            "type": "DETECTED",
+            "robotId": robotId,
+            "videoId": videoId,
+            "keyframe": keyframe,
+            "frame": {
+                "width": im.w,
+                "height": im.h,
+            },
+            "detectedObjects": detectedObjects,
+            "tracking": tracking,
+            "frame_time": time.isoformat(),
+            "detect_time": datetime.now().isoformat(),
+        }
+
+        self.resultQueue.put([robotId, videoId, msg])
+
+        # cv2.imshow('frame', frame)
+        # cv2.waitKey(1)
+
         if isinstance(arr, bytes):
             free_image(im)
         free_detections(dets, num)
