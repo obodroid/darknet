@@ -415,35 +415,20 @@ class Darknet(Process):
         nms_max_overlap = 1.0
         indices = preprocessing.non_max_suppression(
             boxes, nms_max_overlap, scores)
+
         detections = [detections[i] for i in indices]
+        bboxes = [bboxes[i] for i in indices]
+        confidences = [confidences[i] for i in indices]
+        objectTypes = [objectTypes[i] for i in indices]
+        dataURLs = [dataURLs[i] for i in indices]
 
         # Call the tracker
         self.tracker.predict()
         self.tracker.update(detections)
 
-        tracking = []
-
-        for track in self.tracker.tracks:
-            if not track.is_confirmed() or track.time_since_update > 1:
-                continue
-
-            bbox = track.to_tlwh()
-            tracking.append({
-                "track_id": str(track.track_id),
-                "bbox": {
-                    "x": bbox[0],
-                    "y": bbox[1],
-                    "w": bbox[2],
-                    "h": bbox[3],
-                },
-            })
-            # bbox = track.to_tlbr()
-            # cv2.rectangle(frame, (int(bbox[0]), int(bbox[1])), (int(bbox[2]), int(bbox[3])),(255,255,255), 2)
-            # cv2.putText(frame, str(track.track_id),(int(bbox[0]), int(bbox[1])),0, 5e-3 * 200, (0,255,0),2)
-
         detectedObjects = []
-        for bbox, confidence, objectType, dataURL in zip(bboxes, confidences, objectTypes, dataURLs):
-            detectedObjects.append({
+        for detection_id, bbox, confidence, objectType, dataURL in zip(indices, bboxes, confidences, objectTypes, dataURLs):
+            detectedObject = {
                 "bbox": {
                     "x": bbox[0],
                     "y": bbox[1],
@@ -453,7 +438,26 @@ class Darknet(Process):
                 "confidence": confidence,
                 "objectType": objectType,
                 "dataURL": dataURL,
-            })
+            }
+            for track in self.tracker.tracks:
+                if not track.is_confirmed() or track.time_since_update > 1:
+                    continue
+
+                if track.detection_id == detection_id:
+                    detectedObject["track_id"] = str(track.track_id)
+                    tracking_bbox = track.to_tlwh()
+                    detectedObject["tracking_bbox"] = {
+                        "x": tracking_bbox[0],
+                        "y": tracking_bbox[1],
+                        "w": tracking_bbox[2],
+                        "h": tracking_bbox[3],
+                    },
+                    # bbox = track.to_tlbr()
+                    # cv2.rectangle(frame, (int(bbox[0]), int(bbox[1])), (int(bbox[2]), int(bbox[3])),(255,255,255), 2)
+                    # cv2.putText(frame, str(track.track_id),(int(bbox[0]), int(bbox[1])),0, 5e-3 * 200, (0,255,0),2)
+                    break
+
+            detectedObjects.append(detectedObject)
 
         msg = {
             "type": "DETECTED",
@@ -465,7 +469,6 @@ class Darknet(Process):
                 "height": im.h,
             },
             "detectedObjects": detectedObjects,
-            "tracking": tracking,
             "frame_time": time.isoformat(),
             "detect_time": datetime.now().isoformat(),
         }
