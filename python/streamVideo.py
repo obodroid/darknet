@@ -33,9 +33,11 @@ class StreamVideo(Process):
         self.detectQueue = detectQueue
 
     def putLoad(self, videoSerial, keyframe, frame, time):
-        print("StreamVideo detectQueue qsize: {}".format(self.detectQueue.qsize()))
+        print("StreamVideo detectQueue qsize: {}".format(
+            self.detectQueue.qsize()))
         if self.detectQueue.full():
-            print("StreamVideo drop frame {}, keyframe {}".format(videoSerial, keyframe))
+            print("StreamVideo drop frame {}, keyframe {}".format(
+                videoSerial, keyframe))
             self.dropFrameCount.value += 1
             return
         self.detectQueue.put([videoSerial, keyframe, frame, time])
@@ -46,9 +48,11 @@ class StreamVideo(Process):
 
         if self.stream.isOpened():
             self.fps = self.stream.get(cv2.CAP_PROP_FPS)
-            print("StreamVideo {} run VideoCapture at path {}, fps {}".format(self.video_serial, self.path, self.fps))
+            print("StreamVideo {} run VideoCapture at path {}, fps {}".format(
+                self.video_serial, self.path, self.fps))
         else:
-            print("StreamVideo {} error VideoCapture at path {}".format(self.video_serial, self.path))
+            print("StreamVideo {} error VideoCapture at path {}".format(
+                self.video_serial, self.path))
             self.stop()
 
         # fps = FPS().start()
@@ -60,7 +64,8 @@ class StreamVideo(Process):
             # print("StreamVideo {} finish read stream".format(self.video_serial))
 
             current_frame_time = datetime.now()
-            diff_from_previous_frame = (current_frame_time - self.previous_frame_time).total_seconds()
+            diff_from_previous_frame = (
+                current_frame_time - self.previous_frame_time).total_seconds()
             if diff_from_previous_frame < (1.0 / self.max_fps):
                 self.dropCount += 1
                 # print("StreamVideo {} drop high fps frame at keyframe {} / drop count {} / time diff {}".format(
@@ -75,7 +80,8 @@ class StreamVideo(Process):
             #     displayScreen = "video : {}".format(self.video_serial)
             #     cv2.imshow(displayScreen, frame)
 
-            self.putLoad(self.video_serial, self.keyframe, frame, current_frame_time)
+            self.putLoad(self.video_serial, self.keyframe,
+                         frame, current_frame_time)
             self.previous_frame_time = current_frame_time
             sys.stdout.flush()
 

@@ -68,6 +68,7 @@ dummyText = ''
 for i in range(0, 8300000):
     dummyText += str(1)
 
+
 class DarknetServerProtocol(WebSocketServerProtocol):
     def __init__(self):
         super(DarknetServerProtocol, self).__init__()
@@ -100,11 +101,12 @@ class DarknetServerProtocol(WebSocketServerProtocol):
             t = threading.Thread(target=self.loopSendResult)
             t.setDaemon(True)
             t.start()
-            
+
             self.monitor(0.5)
-            
+
             darknet.initSaveImage()
-            darknet.initDarknetWorkers(self.numWorkers, self.numGpus, self.detectQueue, self.resultQueue)
+            darknet.initDarknetWorkers(
+                self.numWorkers, self.numGpus, self.detectQueue, self.resultQueue)
             return
 
         robotId = msg['robotId']
@@ -152,7 +154,7 @@ class DarknetServerProtocol(WebSocketServerProtocol):
         print("processImage {}".format(video_serial))
         detectorWorker = detector.Detector(
             robotId, videoId, image, None, self.detectCallback, self.detectQueue)
-        
+
         self.imageKeyFrame += 1
         detectorWorker.keyframe = self.imageKeyFrame
         detectorWorker.start()
@@ -176,8 +178,9 @@ class DarknetServerProtocol(WebSocketServerProtocol):
         self.detectors[video_serial] = detectorWorker
 
     def detectCallback(self, msg):
-        reactor.callFromThread(self.sendMessage, json.dumps(msg).encode(), sync=True)
-    
+        reactor.callFromThread(
+            self.sendMessage, json.dumps(msg).encode(), sync=True)
+
     def removeDetector(self, video_serial):
         self.detectors[video_serial].stopStream()
         del self.detectors[video_serial]
@@ -189,7 +192,8 @@ class DarknetServerProtocol(WebSocketServerProtocol):
                 video_serial = robotId + "-" + videoId
                 print(video_serial)
                 if video_serial in self.detectors:
-                    msg['detectedObjects'] = [detectedObject for detectedObject in msg['detectedObjects'] if detectedObject['objectType'] in self.detectors[video_serial].targetObjects]
+                    msg['detectedObjects'] = [detectedObject for detectedObject in msg['detectedObjects']
+                                              if detectedObject['objectType'] in self.detectors[video_serial].targetObjects]
                 if len(msg['detectedObjects']) > 0:
                     self.detectCallback(msg)
             cv2.waitKey(1)
@@ -228,6 +232,7 @@ def main(reactor):
     reactor.listenTCP(args.port, factory)
     reactor.run()
     return Deferred()
+
 
 if __name__ == '__main__':
     mp.set_start_method('spawn', force=True)

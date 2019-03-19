@@ -73,7 +73,8 @@ class Detector(threading.Thread):
             self.detectQueue.put([self.video_serial, 1, frame, datetime.now()])
             return
 
-        streamVideo = StreamVideo(self.stream, self.video_serial, self.isStop, self.dropFrameCount, self.detectQueue)
+        streamVideo = StreamVideo(
+            self.stream, self.video_serial, self.isStop, self.dropFrameCount, self.detectQueue)
         streamVideo.start()
         self.videoCaptureReady()
         streamVideo.join()
@@ -86,7 +87,8 @@ class Detector(threading.Thread):
             self.video_serial, self.isStop.value))
 
     def updateTarget(self, targetObjects):
-        print("Detector {} updateTarget {}".format(self.video_serial, targetObjects))
+        print("Detector {} updateTarget {}".format(
+            self.video_serial, targetObjects))
         self.targetObjects = targetObjects
 
     def videoCaptureReady(self):
