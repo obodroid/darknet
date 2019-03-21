@@ -78,6 +78,7 @@ class DarknetServerProtocol(WebSocketServerProtocol):
         self.detectors = {}
         self.detectQueue = Queue(maxsize=10)
         self.resultQueue = Queue()
+        self.trackingQueue = Queue()
 
     def onConnect(self, request):
         print("Client connecting: {0}".format(request.peer))
@@ -104,9 +105,11 @@ class DarknetServerProtocol(WebSocketServerProtocol):
 
             self.monitor(0.5)
 
+            ds = tracker.DeepSort(self.trackingQueue, self.resultQueue)
+            ds.start()
             darknet.initSaveImage()
             darknet.initDarknetWorkers(
-                self.numWorkers, self.numGpus, self.detectQueue, self.resultQueue)
+                self.numWorkers, self.numGpus, self.detectQueue, self.resultQueue, self.trackingQueue)
             return
 
         robotId = msg['robotId']
