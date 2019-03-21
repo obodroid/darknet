@@ -2,6 +2,7 @@ from ctypes import *
 from multiprocessing import Process
 import setproctitle
 import numpy as np
+import cv2
 import os
 import sys
 
@@ -16,16 +17,18 @@ imgEncPath = b"/src/data/deep_sort/mars-small128.pb"
 
 
 class DeepSort(Process):
-    def __init__(self, trackingQueue, resultQueue):
+    def __init__(self, video_serial, trackingQueue, resultQueue):
         Process.__init__(self)
         self.daemon = True
         self.encoder = None
         self.tracker = None
+        self.video_serial = video_serial
         self.trackingQueue = trackingQueue
         self.resultQueue = resultQueue
 
     def run(self):
-        setproctitle.setproctitle("Tracker")
+        setproctitle.setproctitle("Tracker {}".format(self.video_serial))
+        print('Tracker {}'.format(self.video_serial))
 
         max_cosine_distance = 0.3
         nn_budget = None
@@ -79,4 +82,5 @@ class DeepSort(Process):
                             break
 
                 self.resultQueue.put([robotId, videoId, msg])
+            cv2.waitKey(1)
             sys.stdout.flush()

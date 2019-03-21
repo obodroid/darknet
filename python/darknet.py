@@ -216,7 +216,7 @@ fullImageDir = "/tmp/.robot-app/full_images"
 
 
 class Darknet(Process):
-    def __init__(self, index, numGpus, detectQueue, resultQueue, trackingQueue):
+    def __init__(self, index, numGpus, detectQueue, resultQueue):
         Process.__init__(self)
         self.daemon = True
         self.net = None
@@ -227,7 +227,6 @@ class Darknet(Process):
         self.detectRate = Value('i', 0)
         self.detectQueue = detectQueue
         self.resultQueue = resultQueue
-        self.trackingQueue = trackingQueue
         self.isStop = Value(c_bool, False)
 
     def run(self):
@@ -416,8 +415,7 @@ class Darknet(Process):
             "detect_time": datetime.now().isoformat(),
         }
 
-        # self.resultQueue.put([robotId, videoId, msg])
-        self.trackingQueue.put([robotId, videoId, msg, frame, bboxes, confidences])
+        self.resultQueue.put([robotId, videoId, msg, frame, bboxes, confidences])
 
         # cv2.imshow('frame', frame)
         # cv2.waitKey(1)
@@ -461,11 +459,11 @@ def initSaveImage():
 darknetWorkers = []
 
 
-def initDarknetWorkers(numWorkers, numGpus, detectQueue, resultQueue, trackingQueue):
+def initDarknetWorkers(numWorkers, numGpus, detectQueue, resultQueue):
     print("darknet numWorkers : {}, numGpus : {}".format(numWorkers, numGpus))
 
     for i in range(numWorkers):
-        worker = Darknet(i, numGpus, detectQueue, resultQueue, trackingQueue)
+        worker = Darknet(i, numGpus, detectQueue, resultQueue)
         darknetWorkers.append(worker)
         worker.start()
         print("darknet worker {} started".format(i))

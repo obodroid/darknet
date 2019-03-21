@@ -77,8 +77,9 @@ class DarknetServerProtocol(WebSocketServerProtocol):
         self.numGpus = 1
         self.detectors = {}
         self.detectQueue = Queue(maxsize=10)
-        self.resultQueue = Queue()
-        self.trackingQueue = Queue()
+        self.detectResultQueue = Queue()
+        self.trackingQueues = {}
+        self.trackingResultQueue = Queue()
 
     def onConnect(self, request):
         print("Client connecting: {0}".format(request.peer))
@@ -99,17 +100,19 @@ class DarknetServerProtocol(WebSocketServerProtocol):
             if msg['debug']:
                 benchmark.enable = True
 
+            t = threading.Thread(target=self.loopTrackResult)
+            t.setDaemon(True)
+            t.start()
+
             t = threading.Thread(target=self.loopSendResult)
             t.setDaemon(True)
             t.start()
 
             self.monitor(0.5)
 
-            ds = tracker.DeepSort(self.trackingQueue, self.resultQueue)
-            ds.start()
             darknet.initSaveImage()
             darknet.initDarknetWorkers(
-                self.numWorkers, self.numGpus, self.detectQueue, self.resultQueue, self.trackingQueue)
+                self.numWorkers, self.numGpus, self.detectQueue, self.detectResultQueue)
             return
 
         robotId = msg['robotId']
@@ -178,6 +181,12 @@ class DarknetServerProtocol(WebSocketServerProtocol):
             robotId, videoId, stream, threshold, self.detectCallback, self.detectQueue)
         detectorWorker.setDaemon(True)
         detectorWorker.start()
+
+        self.trackingQueues[video_serial] = Queue()
+        ds = tracker.DeepSort(
+            video_serial, self.trackingQueues[video_serial], self.trackingResultQueue)
+        ds.start()
+
         self.detectors[video_serial] = detectorWorker
 
     def detectCallback(self, msg):
@@ -188,12 +197,21 @@ class DarknetServerProtocol(WebSocketServerProtocol):
         self.detectors[video_serial].stopStream()
         del self.detectors[video_serial]
 
+    def loopTrackResult(self):
+        while True:
+            while not self.detectResultQueue.empty():
+                robotId, videoId, msg, frame, bboxes, confidences = self.detectResultQueue.get()
+                video_serial = robotId + "-" + videoId
+                if video_serial in self.trackingQueues:
+                    self.trackingQueues[video_serial].put([robotId, videoId, msg, frame, bboxes, confidences]) 
+                    
+            cv2.waitKey(1)
+    
     def loopSendResult(self):
         while True:
-            while not self.resultQueue.empty():
-                robotId, videoId, msg = self.resultQueue.get()
+            while not self.trackingResultQueue.empty():
+                robotId, videoId, msg = self.trackingResultQueue.get()
                 video_serial = robotId + "-" + videoId
-                print(video_serial)
                 if video_serial in self.detectors:
                     msg['detectedObjects'] = [detectedObject for detectedObject in msg['detectedObjects']
                                               if detectedObject['objectType'] in self.detectors[video_serial].targetObjects]
