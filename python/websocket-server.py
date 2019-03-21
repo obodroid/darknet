@@ -13,6 +13,33 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# import benchmark
+import tracker
+import detector
+import darknet
+from multiprocessing import Queue
+import multiprocessing as mp
+import threading
+import ssl
+from datetime import datetime
+import time
+import base64
+import numpy as np
+from PIL import Image
+import json
+import imagehash
+import cv2
+import argparse
+import urllib
+from twisted.python import log
+from twisted.internet.ssl import DefaultOpenSSLContextFactory
+from twisted.internet.defer import Deferred, inlineCallbacks
+from twisted.internet import task, reactor, threads
+from autobahn.twisted.websocket import WebSocketServerProtocol, \
+    WebSocketServerFactory
+import txaio
+import pprint
+import traceback
 import ptvsd
 
 # Allow other computers to attach to ptvsd at this IP address and port, using the secret
@@ -24,32 +51,8 @@ import os
 import sys
 fileDir = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(fileDir, ".."))
-import traceback
-import pprint
-import txaio
 txaio.use_twisted()
 
-from autobahn.twisted.websocket import WebSocketServerProtocol, \
-    WebSocketServerFactory
-from twisted.internet import task, reactor, threads
-from twisted.internet.defer import Deferred, inlineCallbacks
-from twisted.internet.ssl import DefaultOpenSSLContextFactory
-from twisted.python import log
-
-import urllib
-import argparse
-import cv2
-import imagehash
-import json
-from PIL import Image
-import numpy as np
-import base64
-import time
-from datetime import datetime
-import ssl
-import threading
-import multiprocessing as mp
-from multiprocessing import Queue
 
 # For TLS connections
 tls_crt = os.path.join(fileDir, 'tls', 'server.crt')
@@ -60,9 +63,6 @@ parser.add_argument('--port', type=int, default=9000,
                     help='WebSocket Port')
 args = parser.parse_args()
 
-import darknet
-import detector
-import benchmark
 
 dummyText = ''
 for i in range(0, 8300000):

@@ -9,8 +9,6 @@ import threading
 from multiprocessing import Value
 from random import randint
 from threading import Timer
-from twisted.internet import task, reactor, threads
-from twisted.internet.defer import Deferred, inlineCallbacks
 import os
 import signal
 import sys
@@ -22,26 +20,10 @@ import time
 import base64
 import logging
 from streamVideo import StreamVideo
-import benchmark
+# import benchmark
 
 fileDir = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(fileDir, ".."))
-
-# log = logging.getLogger() # 'root' Logger
-# console = logging.StreamHandler()
-# timeNow = datetime.fromtimestamp(time.time()).strftime('%Y-%m-%d_%H:%M:%S')
-# logFile = logging.FileHandler("/src/benchmark/darknet_bench_{}.log".format(timeNow))
-# saveDir = "/src/benchmark/images/"
-
-# format_str = '%(asctime)s\t%(levelname)s -- %(processName)s %(filename)s:%(lineno)s -- %(message)s'
-# console.setFormatter(logging.Formatter(format_str))
-# logFile.setFormatter(logging.Formatter(format_str))
-
-# log.addHandler(console) # prints to console.
-# log.addHandler(logFile) # prints to console.
-# log.setLevel(logging.DEBUG) # anything ERROR or above
-# log.warn('Import darknet.py!')
-# log.critical('Going to load neural network over GPU!')
 
 
 class Detector(threading.Thread):
