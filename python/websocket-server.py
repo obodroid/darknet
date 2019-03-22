@@ -216,9 +216,9 @@ class DarknetServerProtocol(WebSocketServerProtocol):
 
     def loopSendDummy(self):
         while True:
-            print("send dummy text at qsize: {}".format(self.dummyQueue.qsize()))
-            self.dummyQueue.put(dummyText)  
-            cv2.waitKey(1000)
+            # print("send dummy text at qsize: {}".format(self.dummyQueue.qsize()))
+            self.dummyQueue.put(dummyText)
+            cv2.waitKey(10)
 
     def loopTrackResult(self):
         while True:
