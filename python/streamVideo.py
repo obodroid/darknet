@@ -70,6 +70,9 @@ class StreamVideo(Process):
             # if self.isDisplay:
             #     displayScreen = "video : {}".format(self.video_serial)
             #     cv2.imshow(displayScreen, frame)
+            frameRs=cv2.resize(frame, (1280,720))
+            cv2.imshow("showFrame", frameRs)
+            key=cv2.waitKey(10)
 
             self.putLoad(self.video_serial, self.keyframe, frame, current_frame_time)
             self.previous_frame_time = current_frame_time
