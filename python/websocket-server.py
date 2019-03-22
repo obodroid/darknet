@@ -63,7 +63,7 @@ parser = argparse.ArgumentParser()
 parser.add_argument('--port', type=int, default=9000,
                     help='WebSocket Port')
 parser.add_argument('--dummy', help="Send dummy text for testing purpose",
-                            action="store_true")
+                    action="store_true")
 args = parser.parse_args()
 dummyText = 'x' * int(8.3 * 1000000)
 
@@ -207,6 +207,13 @@ class DarknetServerProtocol(WebSocketServerProtocol):
         self.detectors[video_serial].stopStream()
         del self.detectors[video_serial]
 
+    def doSendResult(self, video_serial, msg):
+        if video_serial in self.detectors:
+            msg['detectedObjects'] = [detectedObject for detectedObject in msg['detectedObjects']
+                                      if detectedObject['objectType'] in self.detectors[video_serial].targetObjects]
+        if len(msg['detectedObjects']) > 0:
+            self.detectCallback(msg)
+
     def loopSendDummy(self):
         while True:
             print("send dummy text at qsize: {}".format(self.dummyQueue.qsize()))
@@ -219,21 +226,21 @@ class DarknetServerProtocol(WebSocketServerProtocol):
                 robotId, videoId, msg, frame, bboxes, confidences = self.detectResultQueue.get()
                 video_serial = robotId + "-" + videoId
                 if video_serial in self.trackingQueues:
-                    self.trackingQueues[video_serial].put([robotId, videoId, msg, frame, bboxes, confidences]) 
-                    
-            cv2.waitKey(1)
-    
+                    self.trackingQueues[video_serial].put(
+                        [robotId, videoId, msg, frame, bboxes, confidences])
+                else:
+                    self.doSendResult(video_serial, msg)
+            else:
+                cv2.waitKey(1)
+
     def loopSendResult(self):
         while True:
             while not self.trackingResultQueue.empty():
                 robotId, videoId, msg = self.trackingResultQueue.get()
                 video_serial = robotId + "-" + videoId
-                if video_serial in self.detectors:
-                    msg['detectedObjects'] = [detectedObject for detectedObject in msg['detectedObjects']
-                                              if detectedObject['objectType'] in self.detectors[video_serial].targetObjects]
-                if len(msg['detectedObjects']) > 0:
-                    self.detectCallback(msg)
-            cv2.waitKey(1)
+                self.doSendResult(video_serial, msg)
+            else:
+                cv2.waitKey(1)
 
     def monitor(self, interval):
         t = threading.Timer(interval, self.monitor, [interval])
