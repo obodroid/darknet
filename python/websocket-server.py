@@ -17,6 +17,7 @@
 import tracker
 import detector
 import darknet
+import dummyProcess
 from multiprocessing import Queue
 import multiprocessing as mp
 import threading
@@ -61,12 +62,10 @@ tls_key = os.path.join(fileDir, 'tls', 'server.key')
 parser = argparse.ArgumentParser()
 parser.add_argument('--port', type=int, default=9000,
                     help='WebSocket Port')
+parser.add_argument('--dummy', help="Send dummy text for testing purpose",
+                            action="store_true")
 args = parser.parse_args()
-
-
-dummyText = ''
-for i in range(0, 8300000):
-    dummyText += str(1)
+dummyText = 'x' * int(8.3 * 1000000)
 
 
 class DarknetServerProtocol(WebSocketServerProtocol):
@@ -80,6 +79,7 @@ class DarknetServerProtocol(WebSocketServerProtocol):
         self.detectResultQueue = Queue()
         self.trackingQueues = {}
         self.trackingResultQueue = Queue()
+        self.dummyQueue = Queue(maxsize=10)
 
     def onConnect(self, request):
         print("Client connecting: {0}".format(request.peer))
@@ -110,9 +110,19 @@ class DarknetServerProtocol(WebSocketServerProtocol):
 
             self.monitor(0.5)
 
-            darknet.initSaveImage()
-            darknet.initDarknetWorkers(
-                self.numWorkers, self.numGpus, self.detectQueue, self.detectResultQueue)
+            if args.dummy:
+                print("Create Dummy Process")
+                d = dummyProcess.Dummy(self.dummyQueue)
+                d.start()
+
+                t = threading.Thread(target=self.loopSendDummy)
+                t.setDaemon(True)
+                t.start()
+            else:
+                darknet.initSaveImage()
+                darknet.initDarknetWorkers(
+                    self.numWorkers, self.numGpus, self.detectQueue, self.detectResultQueue)
+
             return
 
         robotId = msg['robotId']
@@ -135,7 +145,7 @@ class DarknetServerProtocol(WebSocketServerProtocol):
                 self.removeDetector(video_serial)
         elif msg['type'] == "ECHO":
             print("ECHO - {}".format(video_serial))
-            if False:
+            if args.dummy:
                 # attach message with maximum size limit
                 msg['response'] = dummyText
             self.detectCallback(msg)
@@ -196,6 +206,12 @@ class DarknetServerProtocol(WebSocketServerProtocol):
     def removeDetector(self, video_serial):
         self.detectors[video_serial].stopStream()
         del self.detectors[video_serial]
+
+    def loopSendDummy(self):
+        while True:
+            print("send dummy text at qsize: {}".format(self.dummyQueue.qsize()))
+            self.dummyQueue.put(dummyText)  
+            cv2.waitKey(1000)
 
     def loopTrackResult(self):
         while True:
