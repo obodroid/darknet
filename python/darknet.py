@@ -31,7 +31,14 @@ from deep_sort.detection import Detection as ddet
 
 fileDir = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(fileDir, ".."))
+darknetDir = os.path.abspath(os.path.join(fileDir, os.pardir))
+dataDir = os.path.abspath(os.path.join(fileDir, "../../data"))
+# tempDir = "/tmp/.robot-app/full_images"
+tempDir = os.path.abspath(os.path.join(fileDir, "../../tmp"))
 
+print("fileDir - {}".format(fileDir))
+print("darknetDir - {}".format(darknetDir))
+print("dataDir - {}".format(dataDir))
 # log = logging.getLogger() # 'root' Logger
 # console = logging.StreamHandler()
 # timeNow = datetime.fromtimestamp(time.time()).strftime('%Y-%m-%d_%H:%M:%S')
@@ -47,7 +54,6 @@ sys.path.append(os.path.join(fileDir, ".."))
 # log.setLevel(logging.DEBUG) # anything ERROR or above
 # log.warn('Import darknet.py!')
 # log.critical('Going to load neural network over GPU!')
-
 
 def sample(probs):
     s = sum(probs)
@@ -138,8 +144,7 @@ class iplimage_t(Structure):
                 ('data', py_object),
                 ('offset', c_size_t)]
 
-
-lib = CDLL("/src/darknet/libdarknet.so", RTLD_GLOBAL)
+lib = CDLL("{}/libdarknet.so".format(darknetDir), RTLD_GLOBAL)
 lib.network_width.argtypes = [c_void_p]
 lib.network_width.restype = c_int
 lib.network_height.argtypes = [c_void_p]
@@ -158,7 +163,7 @@ make_image.restype = IMAGE
 
 get_network_boxes = lib.get_network_boxes
 get_network_boxes.argtypes = [c_void_p, c_int, c_int,
-                              c_float, c_float, POINTER(c_int), c_int, POINTER(c_int)]
+                            c_float, c_float, POINTER(c_int), c_int, POINTER(c_int)]
 get_network_boxes.restype = POINTER(DETECTION)
 
 make_network_boxes = lib.make_network_boxes
@@ -209,9 +214,12 @@ predict_image = lib.network_predict_image
 predict_image.argtypes = [c_void_p, IMAGE]
 predict_image.restype = POINTER(c_float)
 
-configPath = b"/src/darknet/cfg/yolov3.cfg"
-weightPath = b"/src/data/yolo/yolov3.weights"
-metaPath = b"/src/darknet/cfg/coco.data"
+# configPath = b"/src/darknet/cfg/yolov3.cfg"
+# weightPath = b"/src/data/yolo/yolov3.weights"
+# metaPath = b"/src/darknet/cfg/coco.data"
+configPath = b"/home/sr1/robot-service/docker/ror/darknet/cfg/yolov3.cfg"
+weightPath = b"/home/sr1/robot-service/docker/ror/data/yolo/yolov3.weights"
+metaPath = b"/home/sr1/robot-service/docker/ror/darknet/cfg/coco_aarch64.data"
 imgEncPath = b"/src/data/deep_sort/mars-small128.pb"
 thresh = .6
 hier_thresh = .5
@@ -220,7 +228,7 @@ bufferSize = 3
 maxTimeout = 10  # secs
 
 isNeedSaveImage = True
-fullImageDir = "/tmp/.robot-app/full_images"
+fullImageDir = tempDir
 
 
 class Darknet(Process):
@@ -241,11 +249,13 @@ class Darknet(Process):
 
     def run(self):
         setproctitle.setproctitle("Darknet {}".format(self.index))
-        gpuIndex = (self.index % self.numGpus) + \
-            ((int(os.environ['CONTAINER_INDEX']) - 1) * self.numGpus) + 1
-        set_gpu(gpuIndex)
-        print("Load darknet worker = {} with gpuIndex = {}".format(
-            self.index, gpuIndex))
+        # gpuIndex = (self.index % self.numGpus) + \
+        #     ((1 - 1) * self.numGpus) + 1
+        # gpuIndex = (self.index % self.numGpus) + \
+        #     ((int(os.environ['CONTAINER_INDEX']) - 1) * self.numGpus) + 1
+        # set_gpu(gpuIndex)
+        # print("Load darknet worker = {} with gpuIndex = {}".format(
+        #     self.index, gpuIndex))
         self.net = load_net(configPath, weightPath, 0)
         self.meta = load_meta(metaPath)
         for i in range(self.meta.classes):
@@ -258,18 +268,21 @@ class Darknet(Process):
         nn_budget = None
 
         # deep_sort
-        self.encoder = gdet.create_box_encoder(imgEncPath, batch_size=1)
-        metric = nn_matching.NearestNeighborDistanceMetric(
-            "cosine", max_cosine_distance, nn_budget)
-        self.tracker = Tracker(metric)
+        # self.encoder = gdet.create_box_encoder(imgEncPath, batch_size=1)
+        # metric = nn_matching.NearestNeighborDistanceMetric(
+        #     "cosine", max_cosine_distance, nn_budget)
+        # self.tracker = Tracker(metric)
 
         self.monitorDetectRate()
 
         while not self.isStop.value:
+            
             try:
                 video_serial, keyframe, frame, time = self.detectQueue.get(
                     timeout=0.1)
+                print("darknet consume : {}".format(video_serial, keyframe))
                 self.nnDetect(video_serial, keyframe, frame, time)
+
             except Exception:
                 pass
             sys.stdout.flush()
@@ -330,6 +343,9 @@ class Darknet(Process):
     #     return res
 
     def nnDetect(self, video_serial, keyframe, frame, time):
+
+        # cv2.imshow('NNFrame-Input', frame)
+        # cv2.waitKey(100)
         self.detectCount += 1
         print("darknet {} nnDetect {}, keyframe {}".format(
             self.index, video_serial, keyframe))
@@ -379,7 +395,9 @@ class Darknet(Process):
                     # if need to show rectangular bounding box and text, you can uncomment here
                     # cv2.rectangle(frame, (x1, y1), (x2, y2), classes_box_colors[1], 2)
                     # cv2.putText(frame, self.meta.names[i].decode(), (x1, y1 - 20), 1, 1, classes_font_colors[0], 2, cv2.LINE_AA)
-
+                    # cv2.imshow('NNFrame-{}'.format(video_serial), frame)
+                    # cv2.waitKey(100)
+                    
                     cropImage = frame[y1:y2, x1:x2]
                     height, width, channels = cropImage.shape
                     if width > 0 and height > 0:
@@ -405,26 +423,26 @@ class Darknet(Process):
                         dataURLs.append(dataURL)
                         foundObject = True
 
-        features = self.encoder(frame, bboxes)
-        detections = [Detection(bbox, confidence, feature) for bbox,
-                      confidence, feature in zip(bboxes, confidences, features)]
+        # features = self.encoder(frame, bboxes)
+        # detections = [Detection(bbox, confidence, feature) for bbox,
+        #               confidence, feature in zip(bboxes, confidences, features)]
 
-        # Run non-maxima suppression.
-        boxes = np.array([d.tlwh for d in detections])
-        scores = np.array([d.confidence for d in detections])
-        nms_max_overlap = 1.0
-        indices = preprocessing.non_max_suppression(
-            boxes, nms_max_overlap, scores)
+        # # Run non-maxima suppression.
+        # boxes = np.array([d.tlwh for d in detections])
+        # scores = np.array([d.confidence for d in detections])
+        # nms_max_overlap = 1.0
+        # indices = preprocessing.non_max_suppression(
+        #     boxes, nms_max_overlap, scores)
 
-        detections = [detections[i] for i in indices]
-        bboxes = [bboxes[i] for i in indices]
-        confidences = [confidences[i] for i in indices]
-        objectTypes = [objectTypes[i] for i in indices]
-        dataURLs = [dataURLs[i] for i in indices]
+        # detections = [detections[i] for i in indices]
+        # bboxes = [bboxes[i] for i in indices]
+        # confidences = [confidences[i] for i in indices]
+        # objectTypes = [objectTypes[i] for i in indices]
+        # dataURLs = [dataURLs[i] for i in indices]
 
-        # Call the tracker
-        self.tracker.predict()
-        self.tracker.update(detections)
+        # # Call the tracker
+        # self.tracker.predict()
+        # self.tracker.update(detections)
 
         detectedObjects = []
         for detection_id, bbox, confidence, objectType, dataURL in zip(indices, bboxes, confidences, objectTypes, dataURLs):
@@ -439,23 +457,23 @@ class Darknet(Process):
                 "objectType": objectType,
                 "dataURL": dataURL,
             }
-            for track in self.tracker.tracks:
-                if not track.is_confirmed() or track.time_since_update > 1:
-                    continue
+            # for track in self.tracker.tracks:
+            #     if not track.is_confirmed() or track.time_since_update > 1:
+            #         continue
 
-                if track.detection_id == detection_id:
-                    detectedObject["track_id"] = str(track.track_id)
-                    tracking_bbox = track.to_tlwh()
-                    detectedObject["tracking_bbox"] = {
-                        "x": tracking_bbox[0],
-                        "y": tracking_bbox[1],
-                        "w": tracking_bbox[2],
-                        "h": tracking_bbox[3],
-                    },
-                    # bbox = track.to_tlbr()
-                    # cv2.rectangle(frame, (int(bbox[0]), int(bbox[1])), (int(bbox[2]), int(bbox[3])),(255,255,255), 2)
-                    # cv2.putText(frame, str(track.track_id),(int(bbox[0]), int(bbox[1])),0, 5e-3 * 200, (0,255,0),2)
-                    break
+            #     if track.detection_id == detection_id:
+            #         detectedObject["track_id"] = str(track.track_id)
+            #         tracking_bbox = track.to_tlwh()
+            #         detectedObject["tracking_bbox"] = {
+            #             "x": tracking_bbox[0],
+            #             "y": tracking_bbox[1],
+            #             "w": tracking_bbox[2],
+            #             "h": tracking_bbox[3],
+            #         },
+            #         # bbox = track.to_tlbr()
+            #         # cv2.rectangle(frame, (int(bbox[0]), int(bbox[1])), (int(bbox[2]), int(bbox[3])),(255,255,255), 2)
+            #         # cv2.putText(frame, str(track.track_id),(int(bbox[0]), int(bbox[1])),0, 5e-3 * 200, (0,255,0),2)
+            #         break
 
             detectedObjects.append(detectedObject)
 
@@ -474,9 +492,6 @@ class Darknet(Process):
         }
 
         self.resultQueue.put([robotId, videoId, msg])
-
-        # cv2.imshow('frame', frame)
-        # cv2.waitKey(1)
 
         if isinstance(arr, bytes):
             free_image(im)
@@ -515,7 +530,6 @@ def initSaveImage():
 
 
 darknetWorkers = []
-
 
 def initDarknetWorkers(numWorkers, numGpus, detectQueue, resultQueue):
     print("darknet numWorkers : {}, numGpus : {}".format(numWorkers, numGpus))

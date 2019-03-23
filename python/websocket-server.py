@@ -49,7 +49,7 @@ from datetime import datetime
 import ssl
 import threading
 import multiprocessing as mp
-from multiprocessing import Queue
+from multiprocessing import Queue, Process
 
 # For TLS connections
 tls_crt = os.path.join(fileDir, 'tls', 'server.crt')
@@ -61,6 +61,7 @@ parser.add_argument('--port', type=int, default=9000,
 args = parser.parse_args()
 
 import darknet
+
 import detector
 import benchmark
 
@@ -71,6 +72,7 @@ for i in range(0, 8300000):
 
 class DarknetServerProtocol(WebSocketServerProtocol):
     def __init__(self):
+        print("init DarknetServerProtocol")
         super(DarknetServerProtocol, self).__init__()
         self.imageKeyFrame = 0
         self.numWorkers = 1
@@ -107,6 +109,13 @@ class DarknetServerProtocol(WebSocketServerProtocol):
             darknet.initSaveImage()
             darknet.initDarknetWorkers(
                 self.numWorkers, self.numGpus, self.detectQueue, self.resultQueue)
+            
+            result = {
+                "type" : "DARKNET_LOADED",
+                "numWorkers":self.numWorkers,
+                "numGpus":self.numGpus
+            }
+            self.sendMessage(json.dumps(result).encode(), sync=True)
             return
 
         robotId = msg['robotId']
@@ -215,8 +224,8 @@ class DarknetServerProtocol(WebSocketServerProtocol):
         }
         self.detectCallback(msg)
 
-
 def main(reactor):
+    
     observer = log.startLogging(sys.stdout)
     observer.timeFormat = "%Y-%m-%d %T.%f"
     # txaio.start_logging(level='debug')
@@ -227,12 +236,12 @@ def main(reactor):
         autoFragmentSize=1000000
     )
     factory.protocol = DarknetServerProtocol
+
     # ctx_factory = DefaultOpenSSLContextFactory(tls_key, tls_crt)
     # reactor.listenSSL(args.port, factory, ctx_factory)
     reactor.listenTCP(args.port, factory)
     reactor.run()
     return Deferred()
-
 
 if __name__ == '__main__':
     mp.set_start_method('spawn', force=True)
