@@ -13,6 +13,34 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+# import benchmark
+import tracker
+import detector
+import darknet
+import dummyProcess
+from multiprocessing import Queue
+import multiprocessing as mp
+import threading
+import ssl
+from datetime import datetime
+import time
+import base64
+import numpy as np
+from PIL import Image
+import json
+import imagehash
+import cv2
+import argparse
+import urllib
+from twisted.python import log
+from twisted.internet.ssl import DefaultOpenSSLContextFactory
+from twisted.internet.defer import Deferred, inlineCallbacks
+from twisted.internet import task, reactor, threads
+from autobahn.twisted.websocket import WebSocketServerProtocol, \
+    WebSocketServerFactory
+import txaio
+import pprint
+import traceback
 import ptvsd
 
 # Allow other computers to attach to ptvsd at this IP address and port, using the secret
@@ -24,32 +52,8 @@ import os
 import sys
 fileDir = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(fileDir, ".."))
-import traceback
-import pprint
-import txaio
 txaio.use_twisted()
 
-from autobahn.twisted.websocket import WebSocketServerProtocol, \
-    WebSocketServerFactory
-from twisted.internet import task, reactor, threads
-from twisted.internet.defer import Deferred, inlineCallbacks
-from twisted.internet.ssl import DefaultOpenSSLContextFactory
-from twisted.python import log
-
-import urllib
-import argparse
-import cv2
-import imagehash
-import json
-from PIL import Image
-import numpy as np
-import base64
-import time
-from datetime import datetime
-import ssl
-import threading
-import multiprocessing as mp
-from multiprocessing import Queue
 
 # For TLS connections
 tls_crt = os.path.join(fileDir, 'tls', 'server.crt')
@@ -58,17 +62,11 @@ tls_key = os.path.join(fileDir, 'tls', 'server.key')
 parser = argparse.ArgumentParser()
 parser.add_argument('--port', type=int, default=9000,
                     help='WebSocket Port')
+parser.add_argument('--dummy', help="Send dummy text for testing purpose",
+                    action="store_true")
 args = parser.parse_args()
+dummyText = 'x' * int(8.3 * 1000000)
 
-import darknet
-import detector
-import benchmark
-
-dummyText = ''
-for i in range(0, 8300000):
-    dummyText += str(1)
-
-darknetIsInit = False
 
 class DarknetServerProtocol(WebSocketServerProtocol):
     def __init__(self):
@@ -78,7 +76,10 @@ class DarknetServerProtocol(WebSocketServerProtocol):
         self.numGpus = 1
         self.detectors = {}
         self.detectQueue = Queue(maxsize=10)
-        self.resultQueue = Queue()
+        self.detectResultQueue = Queue()
+        self.trackingQueues = {}
+        self.trackingResultQueue = Queue()
+        self.dummyQueue = Queue(maxsize=10)
 
     def onConnect(self, request):
         print("Client connecting: {0}".format(request.peer))
@@ -99,18 +100,29 @@ class DarknetServerProtocol(WebSocketServerProtocol):
             if msg['debug']:
                 benchmark.enable = True
 
+            t = threading.Thread(target=self.loopTrackResult)
+            t.setDaemon(True)
+            t.start()
+
             t = threading.Thread(target=self.loopSendResult)
             t.setDaemon(True)
             t.start()
-            
+
             self.monitor(0.5)
-            
-            global darknetIsInit
-            print("server darknetIsInit - {}".format(darknetIsInit))
-            if not darknetIsInit:
-                darknetIsInit = True
+
+            if args.dummy:
+                print("Create Dummy Process")
+                d = dummyProcess.Dummy(self.dummyQueue)
+                d.start()
+
+                t = threading.Thread(target=self.loopSendDummy)
+                t.setDaemon(True)
+                t.start()
+            else:
                 darknet.initSaveImage()
-                darknet.initDarknetWorkers(self.numWorkers, self.numGpus, self.detectQueue, self.resultQueue)
+                darknet.initDarknetWorkers(
+                    self.numWorkers, self.numGpus, self.detectQueue, self.detectResultQueue)
+
             return
 
         robotId = msg['robotId']
@@ -133,7 +145,7 @@ class DarknetServerProtocol(WebSocketServerProtocol):
                 self.removeDetector(video_serial)
         elif msg['type'] == "ECHO":
             print("ECHO - {}".format(video_serial))
-            if False:
+            if args.dummy:
                 # attach message with maximum size limit
                 msg['response'] = dummyText
             self.detectCallback(msg)
@@ -146,6 +158,7 @@ class DarknetServerProtocol(WebSocketServerProtocol):
     def onClose(self, wasClean, code, reason):
         for video_serial in list(self.detectors.keys()):
             self.removeDetector(video_serial)
+        darknet.deinitDarknetWorkers()
         print("WebSocket connection closed: {0}".format(reason))
 
     def processImage(self, msg):
@@ -156,8 +169,8 @@ class DarknetServerProtocol(WebSocketServerProtocol):
 
         print("processImage {}".format(video_serial))
         detectorWorker = detector.Detector(
-            robotId, videoId, image, None, self.detectCallback)
-        
+            robotId, videoId, image, None, self.detectCallback, self.detectQueue)
+
         self.imageKeyFrame += 1
         detectorWorker.keyframe = self.imageKeyFrame
         detectorWorker.start()
@@ -178,29 +191,70 @@ class DarknetServerProtocol(WebSocketServerProtocol):
             robotId, videoId, stream, threshold, self.detectCallback, self.detectQueue)
         detectorWorker.setDaemon(True)
         detectorWorker.start()
+
+        self.trackingQueues[video_serial] = Queue()
+        ds = tracker.DeepSort(
+            video_serial, self.trackingQueues[video_serial], self.trackingResultQueue)
+        ds.start()
+
         self.detectors[video_serial] = detectorWorker
 
     def detectCallback(self, msg):
-        reactor.callFromThread(self.sendMessage, json.dumps(msg).encode(), sync=True)
-    
+        reactor.callFromThread(
+            self.sendMessage, json.dumps(msg).encode(), sync=True)
+
     def removeDetector(self, video_serial):
         self.detectors[video_serial].stopStream()
         del self.detectors[video_serial]
 
+    def doSendResult(self, video_serial, msg):
+        if video_serial in self.detectors:
+            msg['detectedObjects'] = [detectedObject for detectedObject in msg['detectedObjects']
+                                      if detectedObject['objectType'] in self.detectors[video_serial].targetObjects]
+        if len(msg['detectedObjects']) > 0:
+            self.detectCallback(msg)
+
+    def loopSendDummy(self):
+        while True:
+            # print("send dummy text at qsize: {}".format(self.dummyQueue.qsize()))
+            self.dummyQueue.put(dummyText)
+            cv2.waitKey(10)
+
+    def loopTrackResult(self):
+        while True:
+            while not self.detectResultQueue.empty():
+                robotId, videoId, msg, frame, bboxes, confidences = self.detectResultQueue.get()
+                video_serial = robotId + "-" + videoId
+                if video_serial in self.trackingQueues:
+                    self.trackingQueues[video_serial].put(
+                        [robotId, videoId, msg, frame, bboxes, confidences])
+                else:
+                    self.doSendResult(video_serial, msg)
+            else:
+                cv2.waitKey(1)
+
     def loopSendResult(self):
         while True:
-            if not self.resultQueue.empty():
-                msg = self.resultQueue.get()
-                self.detectCallback(msg)
-            cv2.waitKey(1)
+            while not self.trackingResultQueue.empty():
+                robotId, videoId, msg = self.trackingResultQueue.get()
+                video_serial = robotId + "-" + videoId
+                self.doSendResult(video_serial, msg)
+            else:
+                cv2.waitKey(1)
 
     def monitor(self, interval):
         t = threading.Timer(interval, self.monitor, [interval])
         t.setDaemon(True)
         t.start()
+
+        detectDropFrames = {}
+        for video_serial in self.detectors:
+            detectDropFrames[video_serial] = self.detectors[video_serial].dropFrameCount.value
+
         msg = {
             'type': 'MONITOR',
             'detectRates': darknet.getDetectRates(),
+            'detectDropFrames': detectDropFrames,
             'detectQueueSize': self.detectQueue.qsize(),
         }
         self.detectCallback(msg)
@@ -222,6 +276,7 @@ def main(reactor):
     reactor.listenTCP(args.port, factory)
     reactor.run()
     return Deferred()
+
 
 if __name__ == '__main__':
     mp.set_start_method('spawn', force=True)

@@ -1,16 +1,17 @@
 autobahn >= 19.2.1
 imagehash >= 4.0
 twisted == 18.9.0
-scipy >= 1.2.1
-scikit-learn >= 0.20.0
-protobuf
-appdirs
-pyOpenSSL
-cryptography
-service-identity
-matplotlib
-numpy
-pandas
-ptvsd
-websocket-client
-imutils
+scipy >= 0.13.3, < 0.17
+scikit-learn >= 0.18, < 0.20
+appdirs >= 1.4.3
+pyOpenSSL >= 17.0.0
+cryptography >= 1.8.1
+service-identity >= 16.0.0
+matplotlib >= 1.4, <= 2.2.2
+numpy >= 1.1, < 2.0
+pandas >= 0.13, < 0.18
+ptvsd == 3.0.0
+websocket-client >= 0.50
+imutils >= 0.5.1
+setproctitle == 1.1.10
+tensorflow == 1.13.1

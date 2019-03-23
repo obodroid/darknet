@@ -11,6 +11,7 @@ from random import randint
 from threading import Timer
 from twisted.internet import task, reactor, threads
 from twisted.internet.defer import Deferred, inlineCallbacks
+import setproctitle
 import os
 import signal
 import sys
@@ -208,10 +209,11 @@ thresh = .6
 hier_thresh = .5
 nms = .45
 bufferSize = 3
-maxTimeout = 10 # secs
+maxTimeout = 10  # secs
 
 isNeedSaveImage = True
 fullImageDir = "/tmp/.robot-app/full_images"
+
 
 class Darknet(Process):
     def __init__(self, index, numGpus, detectQueue, resultQueue):
@@ -225,23 +227,31 @@ class Darknet(Process):
         self.detectRate = Value('i', 0)
         self.detectQueue = detectQueue
         self.resultQueue = resultQueue
-        self.monitorDetectRate()
+        self.isStop = Value(c_bool, False)
 
     def run(self):
-        gpuIndex = (self.index % self.numGpus) + 1
+        setproctitle.setproctitle("Darknet {}".format(self.index))
+        gpuIndex = (self.index % self.numGpus) + \
+            ((int(os.environ['CONTAINER_INDEX']) - 1) * self.numGpus) + 1
         set_gpu(gpuIndex)
-        print("Load darknet worker = {} with gpuIndex = {}".format(self.index, gpuIndex))
+        print("Load darknet worker = {} with gpuIndex = {}".format(
+            self.index, gpuIndex))
         self.net = load_net(configPath, weightPath, 0)
         self.meta = load_meta(metaPath)
         for i in range(self.meta.classes):
-            self.meta.names[i] = self.meta.names[i].decode().replace(' ', '_').encode()
+            self.meta.names[i] = self.meta.names[i].decode().replace(
+                ' ', '_').encode()
         print("darknet {} initialized".format(self.index))
 
-        while True:
-            if not self.detectQueue.empty():
-                video_serial, keyframe, frame, time = self.detectQueue.get()
-                frame = self.nnDetect(video_serial, keyframe, frame, time)
-            cv2.waitKey(1)
+        self.monitorDetectRate()
+
+        while not self.isStop.value:
+            try:
+                video_serial, keyframe, frame, time = self.detectQueue.get(
+                    timeout=0.1)
+                self.nnDetect(video_serial, keyframe, frame, time)
+            except Exception:
+                pass
             sys.stdout.flush()
 
     def monitorDetectRate(self):
@@ -252,7 +262,7 @@ class Darknet(Process):
         self.detectCount = 0
 
     # # original import darknet with some test function
-    #  
+    #
     # def classify(net, meta, im):
     #     out = predict_image(net, im)
     #     res = []
@@ -300,11 +310,13 @@ class Darknet(Process):
     #     return res
 
     def nnDetect(self, video_serial, keyframe, frame, time):
-        print("darknet {} nnDetect {}, keyframe {}".format(self.index, video_serial, keyframe))
+        self.detectCount += 1
+        print("darknet {} nnDetect {}, keyframe {}".format(
+            self.index, video_serial, keyframe))
         robotId, videoId = video_serial.split('-')
         # red for palmup --> stop, green for thumbsup --> go
-        # classes_box_colors = [(0, 0, 255), (0, 255, 0)]
-        # classes_font_colors = [(255, 255, 0), (0, 255, 255)]
+        classes_box_colors = [(0, 0, 255), (0, 255, 0)]
+        classes_font_colors = [(255, 255, 0), (0, 255, 255)]
 
         rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         im, arr = array_to_image(rgb_frame)
@@ -313,7 +325,7 @@ class Darknet(Process):
         pnum = pointer(num)
         predict_image(self.net, im)
         dets = get_network_boxes(self.net, im.w, im.h, thresh,
-                                hier_thresh, None, 0, pnum)
+                                 hier_thresh, None, 0, pnum)
         num = pnum[0]
         foundObject = False
         filename = '{}_{}.jpg'.format(video_serial, keyframe)
@@ -324,12 +336,15 @@ class Darknet(Process):
         if (nms):
             do_nms_obj(dets, num, self.meta.classes, nms)
 
+        bboxes = []
+        confidences = []
+        objectTypes = []
+        dataURLs = []
+
         for j in range(num):
             for i in range(self.meta.classes):
-                # hasTarget = True if self.meta.names[i].decode() in detector.targetObjects or not detector.targetObjects else False
-                hasTarget = True
-
-                if dets[j].prob[i] > 0 and hasTarget:
+                objectType = self.meta.names[i].decode()
+                if dets[j].prob[i] > 0:
                     b = dets[j].bbox
                     x1 = int(b.x - b.w / 2.)
                     y1 = int(b.y - b.h / 2.)
@@ -343,7 +358,7 @@ class Darknet(Process):
 
                     # if need to show rectangular bounding box and text, you can uncomment here
                     # cv2.rectangle(frame, (x1, y1), (x2, y2), classes_box_colors[1], 2)
-                    # cv2.putText(frame, self.meta.names[i], (x1, y1 - 20), 1, 1, classes_font_colors[0], 2, cv2.LINE_AA)
+                    # cv2.putText(frame, self.meta.names[i].decode(), (x1, y1 - 20), 1, 1, classes_font_colors[0], 2, cv2.LINE_AA)
 
                     cropImage = frame[y1:y2, x1:x2]
                     height, width, channels = cropImage.shape
@@ -351,7 +366,8 @@ class Darknet(Process):
                         retval, jpgImage = cv2.imencode('.jpg', cropImage)
                         base64Image = base64.b64encode(jpgImage)
 
-                        print("Found {} at keyframe {}: object - {}, prob - {}".format(video_serial, keyframe, self.meta.names[i], dets[j].prob[i]))
+                        print("Found {} at keyframe {}: object - {}, prob - {}".format(
+                            video_serial, keyframe, self.meta.names[i], dets[j].prob[i]))
 
                         # benchmark.saveImage(cropImage, self.meta.names[i])  # benchmark
 
@@ -360,31 +376,50 @@ class Darknet(Process):
                         # - keyframe.toString().padStart(8, 0)
                         # - targetObject and const wrapType = detectedObject.type.replace(' ', '_');
                         # - Prob threshold or detectedObject.percentage.slice(0, -1) > AI.default.threshold
-                        dataURL = "data:image/jpeg;base64," + str(base64Image)  # dataUrl scheme
-                        msg = {
-                            "type": "DETECTED",
-                            "robotId": robotId,
-                            "videoId": videoId,
-                            "keyframe": keyframe,
-                            "frame": {
-                                "width": im.w,
-                                "height": im.h,
-                            },
-                            "bbox": {
-                                "x": x1,
-                                "y": y1,
-                                "w": b.w,
-                                "h": b.h,
-                            },
-                            "objectType": self.meta.names[i].decode(),
-                            "prob": dets[j].prob[i],
-                            "dataURL": dataURL,
-                            "frame_time": time.isoformat(),
-                            "detect_time": datetime.now().isoformat(),
-                        }
+                        dataURL = "data:image/jpeg;base64," + \
+                            str(base64Image)  # dataURL scheme
+                        bbox = [x1, y1, b.w, b.h]
+                        bboxes.append(bbox)
+                        confidences.append(dets[j].prob[i])
+                        objectTypes.append(objectType)
+                        dataURLs.append(dataURL)
                         foundObject = True
-                        self.resultQueue.put(msg)
-        
+
+        detectedObjects = []
+        for bbox, confidence, objectType, dataURL in zip(bboxes, confidences, objectTypes, dataURLs):
+            detectedObject = {
+                "bbox": {
+                    "x": bbox[0],
+                    "y": bbox[1],
+                    "w": bbox[2],
+                    "h": bbox[3],
+                },
+                "confidence": confidence,
+                "objectType": objectType,
+                "dataURL": dataURL,
+            }
+
+            detectedObjects.append(detectedObject)
+
+        msg = {
+            "type": "DETECTED",
+            "robotId": robotId,
+            "videoId": videoId,
+            "keyframe": keyframe,
+            "frame": {
+                "width": im.w,
+                "height": im.h,
+            },
+            "detectedObjects": detectedObjects,
+            "frame_time": time.isoformat(),
+            "detect_time": datetime.now().isoformat(),
+        }
+
+        self.resultQueue.put([robotId, videoId, msg, frame, bboxes, confidences])
+
+        # cv2.imshow('frame', frame)
+        # cv2.waitKey(1)
+
         if isinstance(arr, bytes):
             free_image(im)
         free_detections(dets, num)
@@ -392,10 +427,6 @@ class Darknet(Process):
         if isNeedSaveImage and foundObject:
             t = threading.Thread(target=saveImage, args=(filepath, frame))
             t.start()
-            t.join()
-
-        self.detectCount += 1
-        return frame
 
 
 def array_to_image(arr):
@@ -407,8 +438,10 @@ def array_to_image(arr):
     im = IMAGE(w, h, c, data)
     return im, arr
 
+
 def saveImage(filepath, frame):
     cv2.imwrite(filepath, frame)
+
 
 def initSaveImage():
     if isNeedSaveImage:
@@ -420,9 +453,11 @@ def initSaveImage():
         else:
             fileList = os.listdir(fullImageDir)
             for fileName in fileList:
-                os.remove(fullImageDir+"/"+fileName)
+                os.remove(fullImageDir + "/" + fileName)
+
 
 darknetWorkers = []
+
 
 def initDarknetWorkers(numWorkers, numGpus, detectQueue, resultQueue):
     print("darknet numWorkers : {}, numGpus : {}".format(numWorkers, numGpus))
@@ -433,9 +468,17 @@ def initDarknetWorkers(numWorkers, numGpus, detectQueue, resultQueue):
         worker.start()
         print("darknet worker {} started".format(i))
 
+
+def deinitDarknetWorkers():
+    for worker in darknetWorkers:
+        print("darknet worker {} stopped".format(worker.index))
+        worker.isStop.value = True
+    darknetWorkers.clear()
+
+
 def getDetectRates():
     detectRates = []
     for i in range(len(darknetWorkers)):
         detectRates.append(darknetWorkers[i].detectRate.value)
-        
+
     return detectRates
