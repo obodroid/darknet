@@ -14,7 +14,7 @@
 # limitations under the License.
 
 # import benchmark
-import tracker
+# import tracker
 import detector
 import darknet
 import dummyProcess
@@ -54,7 +54,6 @@ fileDir = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(fileDir, ".."))
 txaio.use_twisted()
 
-
 # For TLS connections
 tls_crt = os.path.join(fileDir, 'tls', 'server.crt')
 tls_key = os.path.join(fileDir, 'tls', 'server.key')
@@ -67,9 +66,9 @@ parser.add_argument('--dummy', help="Send dummy text for testing purpose",
 args = parser.parse_args()
 dummyText = 'x' * int(8.3 * 1000000)
 
-
 class DarknetServerProtocol(WebSocketServerProtocol):
     def __init__(self):
+        print("init DarknetServerProtocol")
         super(DarknetServerProtocol, self).__init__()
         self.imageKeyFrame = 0
         self.numWorkers = 1
@@ -122,7 +121,14 @@ class DarknetServerProtocol(WebSocketServerProtocol):
                 darknet.initSaveImage()
                 darknet.initDarknetWorkers(
                     self.numWorkers, self.numGpus, self.detectQueue, self.detectResultQueue)
-
+                
+                result = {
+                    "type" : "DARKNET_LOADED",
+                    "numWorkers":self.numWorkers,
+                    "numGpus":self.numGpus
+                }
+                self.sendMessage(json.dumps(result).encode(), sync=True)
+            
             return
 
         robotId = msg['robotId']
@@ -192,10 +198,10 @@ class DarknetServerProtocol(WebSocketServerProtocol):
         detectorWorker.setDaemon(True)
         detectorWorker.start()
 
-        self.trackingQueues[video_serial] = Queue()
-        ds = tracker.DeepSort(
-            video_serial, self.trackingQueues[video_serial], self.trackingResultQueue)
-        ds.start()
+        # self.trackingQueues[video_serial] = Queue()
+        # ds = tracker.DeepSort(
+        #     video_serial, self.trackingQueues[video_serial], self.trackingResultQueue)
+        # ds.start()
 
         self.detectors[video_serial] = detectorWorker
 
@@ -259,8 +265,8 @@ class DarknetServerProtocol(WebSocketServerProtocol):
         }
         self.detectCallback(msg)
 
-
 def main(reactor):
+    
     observer = log.startLogging(sys.stdout)
     observer.timeFormat = "%Y-%m-%d %T.%f"
     # txaio.start_logging(level='debug')
@@ -271,12 +277,12 @@ def main(reactor):
         autoFragmentSize=1000000
     )
     factory.protocol = DarknetServerProtocol
+
     # ctx_factory = DefaultOpenSSLContextFactory(tls_key, tls_crt)
     # reactor.listenSSL(args.port, factory, ctx_factory)
     reactor.listenTCP(args.port, factory)
     reactor.run()
     return Deferred()
-
 
 if __name__ == '__main__':
     mp.set_start_method('spawn', force=True)

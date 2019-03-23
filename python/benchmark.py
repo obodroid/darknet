@@ -8,11 +8,15 @@ import cv2
 from threading import Timer
 import logging
 
+fileDir = os.path.dirname(os.path.realpath(__file__))
+benchmarkDir = os.path.abspath(os.path.join(fileDir, "../../benchmark"))
+print("benchmarkDir - {}".format(benchmarkDir))
+
 log = logging.getLogger() # 'root' Logger
 console = logging.StreamHandler()
 timeNow = datetime.fromtimestamp(time.time()).strftime('%Y-%m-%d_%H:%M:%S')
-logFile = logging.FileHandler("/src/benchmark/benchmark_{}.log".format(timeNow))
-saveDir = "/src/benchmark/images/"
+logFile = logging.FileHandler("{}/benchmark_{}.log".format(benchmarkDir,timeNow))
+saveDir = "{}/images/".format(benchmarkDir)
 
 format_str = '%(asctime)s\t%(levelname)s -- %(processName)s %(filename)s:%(lineno)s -- %(message)s'
 console.setFormatter(logging.Formatter(format_str))

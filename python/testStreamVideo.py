@@ -4,10 +4,8 @@ import threading
 import multiprocessing as mp
 from multiprocessing import Queue, Value
 from streamVideo import StreamVideo
-import darknet
 
-#stream = "rtsp://admin:12345678@192.168.1.110/ch01.264?ptype=udp"
-stream = "rtsp://admin:Obodroid@192.168.1.64"
+stream = "rtsp://admin:12345678@192.168.1.110/ch01.264?ptype=udp"
 
 def stop(sv):
     print('start function')
@@ -23,7 +21,8 @@ if __name__ == '__main__':
 
     captureQueue = Queue(maxsize=10)
     isStop = Value(c_bool, False)
-    streamVideo = StreamVideo(stream, '1-1',isStop, captureQueue)
+    dropFrameCount = Value("i", 0)
+    streamVideo = StreamVideo(stream, '1-1', isStop, dropFrameCount, captureQueue)
     streamVideo.start()
 
     streamVideo.join()

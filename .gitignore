@@ -6,6 +6,7 @@
 *.jpg
 *.pyc
 old/
+python/venv/
 mnist/
 data/
 caffe/

@@ -1,0 +1,17 @@
+autobahn
+imagehash
+twisted
+scipy
+scikit-learn
+appdirs
+pyOpenSSL
+cryptography
+service-identity
+matplotlib
+numpy
+pandas
+ptvsd
+websocket-client
+imutils
+setproctitle
+--pre --extra-index-url https://developer.download.nvidia.com/compute/redist/jp/v42 tensorflow-gpu

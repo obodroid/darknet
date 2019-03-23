@@ -42,5 +42,5 @@ printf "WebSocket Server: Logging to '%s'\n\n" $WEBSOCKET_LOG
 
 python3 simpleSSLServer.py $HTTP_PORT &> /dev/null &
 python3 websocket-server.py --port $WEBSOCKET_PORT 2>&1 | tee $WEBSOCKET_LOG &
-
+echo $!
 wait
