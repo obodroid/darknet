@@ -17,11 +17,12 @@ imgEncPath = b"/src/data/deep_sort/mars-small128.pb"
 
 
 class DeepSort(Process):
-    def __init__(self, video_serial, trackingQueue, resultQueue):
+    def __init__(self, video_serial, gpuIndex, trackingQueue, resultQueue):
         Process.__init__(self)
         self.daemon = True
         self.encoder = None
         self.tracker = None
+        self.gpuIndex = gpuIndex
         self.video_serial = video_serial
         self.trackingQueue = trackingQueue
         self.resultQueue = resultQueue
@@ -33,7 +34,7 @@ class DeepSort(Process):
         max_cosine_distance = 0.3
         nn_budget = None
 
-        self.encoder = gdet.create_box_encoder(imgEncPath, batch_size=1)
+        self.encoder = gdet.create_box_encoder(imgEncPath, batch_size=1, gpu_index=self.gpuIndex)
         metric = nn_matching.NearestNeighborDistanceMetric(
             "cosine", max_cosine_distance, nn_budget)
         self.tracker = Tracker(metric)

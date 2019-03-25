@@ -98,6 +98,8 @@ class DarknetServerProtocol(WebSocketServerProtocol):
                 self.numWorkers = msg['num_workers']
             if msg['num_gpus']:
                 self.numGpus = msg['num_gpus']
+            if msg['tracker_gpu_index']:
+                self.trackerGpuIndex = msg['tracker_gpu_index']
             if msg['debug']:
                 benchmark.enable = True
 
@@ -195,7 +197,7 @@ class DarknetServerProtocol(WebSocketServerProtocol):
 
         self.trackingQueues[video_serial] = Queue()
         ds = tracker.DeepSort(
-            video_serial, self.trackingQueues[video_serial], self.trackingResultQueue)
+            video_serial, self.trackerGpuIndex, self.trackingQueues[video_serial], self.trackingResultQueue)
         ds.start()
 
         self.detectors[video_serial] = detectorWorker
