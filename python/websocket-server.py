@@ -18,7 +18,7 @@ import tracker
 import detector
 import darknet
 import dummyProcess
-from multiprocessing import Queue
+from multiprocessing import Queue, Value
 import multiprocessing as mp
 import threading
 import ssl
@@ -75,6 +75,7 @@ class DarknetServerProtocol(WebSocketServerProtocol):
         self.numWorkers = 1
         self.numGpus = 1
         self.detectors = {}
+        self.detectThroughput = Value('i', 0)
         self.detectQueue = Queue(maxsize=10)
         self.detectResultQueue = Queue()
         self.trackingQueues = {}
@@ -188,7 +189,7 @@ class DarknetServerProtocol(WebSocketServerProtocol):
 
         print("processVideo {}".format(video_serial))
         detectorWorker = detector.Detector(
-            robotId, videoId, stream, threshold, self.detectCallback, self.detectQueue)
+            robotId, videoId, stream, threshold, self.detectCallback, self.detectQueue, self.detectThroughput)
         detectorWorker.setDaemon(True)
         detectorWorker.start()
 
@@ -256,7 +257,10 @@ class DarknetServerProtocol(WebSocketServerProtocol):
             'detectRates': darknet.getDetectRates(),
             'detectDropFrames': detectDropFrames,
             'detectQueueSize': self.detectQueue.qsize(),
+            'detectThroughput': self.detectThroughput.value,
         }
+
+        self.detectThroughput.value = 0
         self.detectCallback(msg)
 
 

@@ -17,7 +17,7 @@ import base64
 
 
 class StreamVideo(Process):
-    def __init__(self, path, video_serial, isStop, dropFrameCount, detectQueue):
+    def __init__(self, path, video_serial, isStop, dropFrameCount, detectQueue, detectThroughput):
         Process.__init__(self)
         self.daemon = True
         self.path = path
@@ -31,6 +31,7 @@ class StreamVideo(Process):
         self.previous_frame_time = datetime.now()
         self.dropFrameCount = dropFrameCount
         self.detectQueue = detectQueue
+        self.detectThroughput = detectThroughput
 
     def putLoad(self, videoSerial, keyframe, frame, time):
         print("StreamVideo detectQueue qsize: {}".format(
@@ -41,6 +42,7 @@ class StreamVideo(Process):
             self.dropFrameCount.value += 1
             return
         self.detectQueue.put([videoSerial, keyframe, frame, time])
+        self.detectThroughput.value += frame.nbytes
 
     def run(self):
         setproctitle.setproctitle("Stream Video {}".format(self.video_serial))

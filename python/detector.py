@@ -27,7 +27,7 @@ sys.path.append(os.path.join(fileDir, ".."))
 
 
 class Detector(threading.Thread):
-    def __init__(self, robotId, videoId, stream, threshold, callback, detectQueue):
+    def __init__(self, robotId, videoId, stream, threshold, callback, detectQueue, detectThroughput):
         self.threshold = threshold
         self.robotId = robotId
         self.videoId = videoId
@@ -38,6 +38,7 @@ class Detector(threading.Thread):
         self.isStop = Value(c_bool, False)
         self.dropFrameCount = Value('i', 0)
         self.detectQueue = detectQueue
+        self.detectThroughput = detectThroughput
 
         threading.Thread.__init__(self)
         print ("Detector Initialized {}".format(self.video_serial))
@@ -56,7 +57,7 @@ class Detector(threading.Thread):
             return
 
         streamVideo = StreamVideo(
-            self.stream, self.video_serial, self.isStop, self.dropFrameCount, self.detectQueue)
+            self.stream, self.video_serial, self.isStop, self.dropFrameCount, self.detectQueue, self.detectThroughput)
         streamVideo.start()
         self.videoCaptureReady()
         streamVideo.join()
