@@ -5,8 +5,6 @@ import threading
 import time
 from threading import Timer
 
-
-
 parser = argparse.ArgumentParser()
 parser.add_argument('--setup', type=bool, default=False,
                     help='If True, initialize darknet worker. Only stream,if false')
