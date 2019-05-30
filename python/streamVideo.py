@@ -34,10 +34,10 @@ class StreamVideo(Process):
         self.detectThroughput = detectThroughput
 
     def putLoad(self, videoSerial, keyframe, frame, time):
-        print("StreamVideo detectQueue qsize: {}".format(
-            self.detectQueue.qsize()))
+        print("StreamVideo {} detectQueue qsize: {}".format(
+            videoSerial, self.detectQueue.qsize()))
         if self.detectQueue.full():
-            print("StreamVideo drop frame {}, keyframe {}".format(
+            print("StreamVideo {} drop frame, keyframe {}".format(
                 videoSerial, keyframe))
             self.dropFrameCount.value += 1
             return
@@ -68,6 +68,7 @@ class StreamVideo(Process):
             current_frame_time = datetime.now()
             diff_from_previous_frame = (
                 current_frame_time - self.previous_frame_time).total_seconds()
+            
             if diff_from_previous_frame < (1.0 / self.max_fps):
                 self.dropCount += 1
                 # print("StreamVideo {} drop high fps frame at keyframe {} / drop count {} / time diff {}".format(
@@ -75,8 +76,9 @@ class StreamVideo(Process):
                 continue
 
             if not grabbed:
+                print("StreamVideo {} grab failed".format(self.video_serial))
                 self.stop()
-                return
+                continue
 
             # if self.isDisplay:
             #     displayScreen = "video : {}".format(self.video_serial)
