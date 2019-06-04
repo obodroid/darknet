@@ -80,9 +80,11 @@ class StreamVideo(Process):
                 self.stop()
                 continue
 
-            # if self.isDisplay:
-            #     displayScreen = "video : {}".format(self.video_serial)
-            #     cv2.imshow(displayScreen, frame)
+            if self.isDisplay:
+                print("StreamVideo {} show frame {}".format(self.video_serial, self.keyframe))
+                displayScreen = "video : {}".format(self.video_serial)
+                cv2.imshow(displayScreen, frame)
+                cv2.waitKey(1)
 
             self.putLoad(self.video_serial, self.keyframe,
                          frame, current_frame_time)
