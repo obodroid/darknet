@@ -18,6 +18,7 @@ import tracker
 import detector
 import darknet
 import dummyProcess
+from ctypes import *
 from multiprocessing import Queue, Value
 import multiprocessing as mp
 import threading
@@ -78,6 +79,7 @@ class DarknetServerProtocol(WebSocketServerProtocol):
         self.detectThroughput = Value('i', 0)
         self.detectQueue = Queue(maxsize=10)
         self.detectResultQueue = Queue()
+        self.trackers = {}
         self.trackingQueues = {}
         self.trackingResultQueue = Queue()
         self.dummyQueue = Queue(maxsize=10)
@@ -195,12 +197,14 @@ class DarknetServerProtocol(WebSocketServerProtocol):
         detectorWorker.setDaemon(True)
         detectorWorker.start()
 
+        isTrackerStop = Value(c_bool, False)
         self.trackingQueues[video_serial] = Queue()
-        ds = tracker.DeepSort(
-            video_serial, self.trackerGpuIndex, self.trackingQueues[video_serial], self.trackingResultQueue)
-        ds.start()
+        trackingWorker = tracker.DeepSort(
+            video_serial, isTrackerStop, self.trackerGpuIndex, self.trackingQueues[video_serial], self.trackingResultQueue)
+        trackingWorker.start()
 
         self.detectors[video_serial] = detectorWorker
+        self.trackers[video_serial] = isTrackerStop
 
     def detectCallback(self, msg):
         reactor.callFromThread(
@@ -209,6 +213,8 @@ class DarknetServerProtocol(WebSocketServerProtocol):
     def removeDetector(self, video_serial):
         self.detectors[video_serial].stopStream()
         del self.detectors[video_serial]
+        if video_serial in self.trackers:
+            self.trackers[video_serial].value = True
 
     def doSendResult(self, video_serial, msg):
         if video_serial in self.detectors:

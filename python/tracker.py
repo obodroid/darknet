@@ -17,11 +17,12 @@ imgEncPath = b"/src/data/deep_sort/mars-small128.pb"
 
 
 class DeepSort(Process):
-    def __init__(self, video_serial, gpuIndex, trackingQueue, resultQueue):
+    def __init__(self, video_serial, isStop, gpuIndex, trackingQueue, resultQueue):
         Process.__init__(self)
         self.daemon = True
         self.encoder = None
         self.tracker = None
+        self.isStop = isStop
         self.gpuIndex = gpuIndex
         self.video_serial = video_serial
         self.trackingQueue = trackingQueue
@@ -39,7 +40,7 @@ class DeepSort(Process):
             "cosine", max_cosine_distance, nn_budget)
         self.tracker = Tracker(metric)
 
-        while True:
+        while self.isStop.value is False:
             while not self.trackingQueue.empty():
                 robotId, videoId, msg, frame, bboxes, confidences = self.trackingQueue.get()
                 video_serial = robotId + "-" + videoId
@@ -85,3 +86,5 @@ class DeepSort(Process):
                 self.resultQueue.put([robotId, videoId, msg])
             cv2.waitKey(1)
             sys.stdout.flush()
+        
+        print("Tracker {} Stopped".format(self.video_serial))

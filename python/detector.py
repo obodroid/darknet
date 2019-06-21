@@ -66,8 +66,6 @@ class Detector(threading.Thread):
 
     def stopStream(self):
         self.isStop.value = True
-        print("Detector {} stopStream: isStop {} ".format(
-            self.video_serial, self.isStop.value))
 
     def updateTarget(self, targetObjects):
         print("Detector {} updateTarget {}".format(
