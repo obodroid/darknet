@@ -144,6 +144,11 @@ class DarknetServerProtocol(WebSocketServerProtocol):
             print("UPDATE - {}".format(video_serial))
             if video_serial in self.detectors:
                 self.detectors[video_serial].updateTarget(msg['options']['targetObjects'])
+            if msg['options']['tracking'] is True:
+                self.trackVideo(video_serial)
+            else:
+                self.stopTracking(video_serial)
+
         elif msg['type'] == "STOP":
             print("STOP - {}".format(video_serial))
             if video_serial in self.detectors:
@@ -188,7 +193,7 @@ class DarknetServerProtocol(WebSocketServerProtocol):
         video_serial = robotId + "-" + videoId
 
         if video_serial in self.detectors:
-            print("{} - video is already process".format(video_serial))
+            print("video {} is already process".format(video_serial))
             return
 
         print("processVideo {}".format(video_serial))
@@ -197,13 +202,20 @@ class DarknetServerProtocol(WebSocketServerProtocol):
         detectorWorker.setDaemon(True)
         detectorWorker.start()
 
+        self.detectors[video_serial] = detectorWorker
+
+    def trackVideo(self, video_serial):
+        if video_serial in self.trackers:
+            print("video {} is already tracked".format(video_serial))
+            return
+
+        print("trackVideo {}".format(video_serial))
         isTrackerStop = Value(c_bool, False)
         self.trackingQueues[video_serial] = Queue()
         trackingWorker = tracker.DeepSort(
             video_serial, isTrackerStop, self.trackerGpuIndex, self.trackingQueues[video_serial], self.trackingResultQueue)
         trackingWorker.start()
 
-        self.detectors[video_serial] = detectorWorker
         self.trackers[video_serial] = isTrackerStop
 
     def detectCallback(self, msg):
@@ -213,8 +225,12 @@ class DarknetServerProtocol(WebSocketServerProtocol):
     def removeDetector(self, video_serial):
         self.detectors[video_serial].stopStream()
         del self.detectors[video_serial]
+        self.stopTracking(video_serial)
+
+    def stopTracking(self, video_serial):
         if video_serial in self.trackers:
             self.trackers[video_serial].value = True
+            del self.trackers[video_serial]
 
     def doSendResult(self, video_serial, msg):
         if video_serial in self.detectors:
