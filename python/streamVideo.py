@@ -94,3 +94,7 @@ class StreamVideo(Process):
         # fps.stop()
         self.stream.release()
         print("StreamVideo {} exit".format(self.video_serial))
+
+    def stop(self):
+        print("StreamVideo {} stop".format(self.video_serial))
+        self.isStop.value = True
