@@ -143,7 +143,7 @@ class DarknetServerProtocol(WebSocketServerProtocol):
         elif msg['type'] == "UPDATE":
             print("UPDATE - {}".format(video_serial))
             if video_serial in self.detectors:
-                self.detectors[video_serial].updateTarget(msg['targetObjects'])
+                self.detectors[video_serial].updateTarget(msg['options']['targetObjects'])
         elif msg['type'] == "STOP":
             print("STOP - {}".format(video_serial))
             if video_serial in self.detectors:
