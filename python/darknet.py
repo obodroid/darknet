@@ -377,7 +377,7 @@ class Darknet(Process):
                         # - targetObject and const wrapType = detectedObject.type.replace(' ', '_');
                         # - Prob threshold or detectedObject.percentage.slice(0, -1) > AI.default.threshold
                         dataURL = "data:image/jpeg;base64," + \
-                            str(base64Image)  # dataURL scheme
+                            str(base64Image.decode('utf-8'))  # dataURL scheme
                         bbox = [x1, y1, b.w, b.h]
                         bboxes.append(bbox)
                         confidences.append(dets[j].prob[i])
