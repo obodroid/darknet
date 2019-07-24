@@ -92,7 +92,6 @@ class DarknetServerProtocol(WebSocketServerProtocol):
 
     def onMessage(self, payload, isBinary):
         raw = payload.decode('utf8')
-        print("server receive msg - {}".format(raw))
         msg = json.loads(raw)
 
         if msg['type'] == "SETUP":
@@ -129,10 +128,12 @@ class DarknetServerProtocol(WebSocketServerProtocol):
                     self.numWorkers, self.numGpus, self.detectQueue, self.detectResultQueue)
 
             return
-
+            
         robotId = msg['robotId']
         videoId = msg['videoId']
         video_serial = robotId + "-" + videoId
+        
+        print("server receive msg type {} from {}".format(msg['type'], video_serial))
 
         if msg['type'] == "START":
             print("START - {}".format(video_serial))
