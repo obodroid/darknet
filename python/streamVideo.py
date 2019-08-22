@@ -17,7 +17,7 @@ import base64
 
 
 class StreamVideo(Process):
-    def __init__(self, path, video_serial, isStop, dropFrameCount, detectQueue, detectThroughput):
+    def __init__(self, path, video_serial, isStop, isLive, dropFrameCount, detectQueue, detectThroughput):
         Process.__init__(self)
         self.daemon = True
         self.path = path
@@ -26,6 +26,7 @@ class StreamVideo(Process):
         self.fps = None
         self.isStop = isStop
         self.isDisplay = False
+        self.isLive = isLive
         self.dropCount = 0
         self.keyframe = 0
         self.previous_frame_time = datetime.now()
@@ -69,7 +70,7 @@ class StreamVideo(Process):
             diff_from_previous_frame = (
                 current_frame_time - self.previous_frame_time).total_seconds()
             
-            if diff_from_previous_frame < (1.0 / self.max_fps):
+            if self.isLive and diff_from_previous_frame < (1.0 / self.max_fps):
                 self.dropCount += 1
                 # print("StreamVideo {} drop high fps frame at keyframe {} / drop count {} / time diff {}".format(
                 #     self.video_serial, self.keyframe, self.dropCount, diff_from_previous_frame))

@@ -57,7 +57,7 @@ class Detector(threading.Thread):
             return
 
         streamVideo = StreamVideo(
-            self.stream, self.video_serial, self.isStop, self.dropFrameCount, self.detectQueue, self.detectThroughput)
+            self.stream, self.video_serial, self.isStop, not self.stream.endswith("mp4"), self.dropFrameCount, self.detectQueue, self.detectThroughput)
         streamVideo.start()
         self.videoCaptureReady()
         streamVideo.join()
