@@ -224,6 +224,12 @@ class DarknetServerProtocol(WebSocketServerProtocol):
         trackingWorker.start()
 
     def detectCallback(self, msg):
+        if msg['type'] == 'STOP':
+            robotId = msg['robotId']
+            videoId = msg['videoId']
+            video_serial = robotId + "-" + videoId
+            self.removeDetector(video_serial)
+
         reactor.callFromThread(
             self.sendMessage, json.dumps(msg).encode(), sync=True)
 
