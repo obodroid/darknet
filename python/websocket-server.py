@@ -21,6 +21,7 @@ import dummyProcess
 from ctypes import *
 from multiprocessing import Queue, Value
 import multiprocessing as mp
+import logging
 import threading
 import ssl
 from datetime import datetime
@@ -318,5 +319,8 @@ def main(reactor):
 
 if __name__ == '__main__':
     mp.set_start_method('spawn', force=True)
+    mp.log_to_stderr()
+    logger = mp.get_logger()
+    logger.setLevel(logging.INFO)
     q = Queue()
     task.react(main)
