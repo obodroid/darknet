@@ -234,10 +234,11 @@ class DarknetServerProtocol(WebSocketServerProtocol):
             self.sendMessage, json.dumps(msg).encode(), sync=True)
 
     def removeDetector(self, video_serial):
-        print("removeDetector {}".format(video_serial))
-        self.detectors[video_serial].stopStream()
-        del self.detectors[video_serial]
-        self.stopTracking(video_serial)
+        if video_serial in self.detectors:
+            print("removeDetector {}".format(video_serial))
+            self.detectors[video_serial].stopStream()
+            del self.detectors[video_serial]
+            self.stopTracking(video_serial)
 
     def stopTracking(self, video_serial):
         print("stopTracking {}".format(video_serial))
