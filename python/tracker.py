@@ -23,6 +23,7 @@ class DeepSort(Process):
         self.encoder = None
         self.tracker = None
         self.isStop = isStop
+        self.isDisplay = False
         self.gpuIndex = gpuIndex
         self.video_serial = video_serial
         self.trackingQueue = trackingQueue
@@ -77,13 +78,22 @@ class DeepSort(Process):
                                 "y": tracking_bbox[1],
                                 "w": tracking_bbox[2],
                                 "h": tracking_bbox[3],
-                            },
-                            # bbox = track.to_tlbr()
-                            # cv2.rectangle(frame, (int(bbox[0]), int(bbox[1])), (int(bbox[2]), int(bbox[3])),(255,255,255), 2)
-                            # cv2.putText(frame, str(track.track_id),(int(bbox[0]), int(bbox[1])),0, 5e-3 * 200, (0,255,0),2)
+                            }
+
+                            if self.isDisplay:
+                                bbox = track.to_tlbr()
+                                cv2.rectangle(frame, (int(bbox[0]), int(bbox[1])), (int(bbox[2]), int(bbox[3])),(255,255,255), 2)
+                                cv2.putText(frame, str(track.track_id),(int(bbox[0]), int(bbox[1])),0, 5e-3 * 200, (0,255,0),2)
                             break
 
                 self.resultQueue.put([robotId, videoId, msg])
+
+                if self.isDisplay:
+                    print("Tracker {} show frame".format(self.video_serial))
+                    title = "track : {}".format(self.video_serial)
+                    cv2.imshow(title, frame)
+                    cv2.waitKey(1)
+
             cv2.waitKey(1)
             sys.stdout.flush()
         

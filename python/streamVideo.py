@@ -83,14 +83,17 @@ class StreamVideo(Process):
 
             if self.isDisplay:
                 print("StreamVideo {} show frame {}".format(self.video_serial, self.keyframe))
-                displayScreen = "video : {}".format(self.video_serial)
-                cv2.imshow(displayScreen, frame)
+                title = "video : {}".format(self.video_serial)
+                cv2.imshow(title, frame)
                 cv2.waitKey(1)
 
             self.putLoad(self.video_serial, self.keyframe,
                          frame, current_frame_time)
             self.previous_frame_time = current_frame_time
             sys.stdout.flush()
+
+            if not self.isLive:
+                cv2.waitKey(int(1000 / self.fps))
 
         # fps.stop()
         self.stream.release()
