@@ -27,8 +27,7 @@ sys.path.append(os.path.join(fileDir, ".."))
 
 
 class Detector(threading.Thread):
-    def __init__(self, robotId, videoId, stream, threshold, callback, detectQueue, detectThroughput):
-        self.threshold = threshold
+    def __init__(self, robotId, videoId, stream, callback, detectQueue, detectThroughput):
         self.robotId = robotId
         self.videoId = videoId
         self.stream = stream

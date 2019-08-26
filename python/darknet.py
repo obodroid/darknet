@@ -216,18 +216,20 @@ fullImageDir = "/tmp/.robot-app/full_images"
 
 
 class Darknet(Process):
-    def __init__(self, index, numGpus, detectQueue, resultQueue):
+    def __init__(self, index, numGpus, threshold, detectQueue, resultQueue):
         Process.__init__(self)
         self.daemon = True
         self.net = None
         self.meta = None
         self.index = index
         self.numGpus = numGpus
+        self.threshold = threshold
         self.detectCount = 0
         self.detectRate = Value('i', 0)
         self.detectQueue = detectQueue
         self.resultQueue = resultQueue
         self.isStop = Value(c_bool, False)
+        self.isDisplay = False
 
     def run(self):
         setproctitle.setproctitle("Darknet {}".format(self.index))
@@ -344,7 +346,7 @@ class Darknet(Process):
         for j in range(num):
             for i in range(self.meta.classes):
                 objectType = self.meta.names[i].decode()
-                if dets[j].prob[i] > 0:
+                if dets[j].prob[i] > self.threshold:
                     b = dets[j].bbox
                     x1 = int(b.x - b.w / 2.)
                     y1 = int(b.y - b.h / 2.)
@@ -356,9 +358,9 @@ class Darknet(Process):
                     x2 = x2 if x2 <= im.w else im.w
                     y2 = y2 if y2 <= im.h else im.h
 
-                    # if need to show rectangular bounding box and text, you can uncomment here
-                    # cv2.rectangle(frame, (x1, y1), (x2, y2), classes_box_colors[1], 2)
-                    # cv2.putText(frame, self.meta.names[i].decode(), (x1, y1 - 20), 1, 1, classes_font_colors[0], 2, cv2.LINE_AA)
+                    if self.isDisplay:
+                        cv2.rectangle(frame, (x1, y1), (x2, y2), classes_box_colors[1], 2)
+                        cv2.putText(frame, self.meta.names[i].decode(), (x1, y1 - 20), 1, 1, classes_font_colors[0], 2, cv2.LINE_AA)
 
                     cropImage = frame[y1:y2, x1:x2]
                     height, width, channels = cropImage.shape
@@ -371,13 +373,7 @@ class Darknet(Process):
 
                         # benchmark.saveImage(cropImage, self.meta.names[i])  # benchmark
 
-                        # - JSON message to send in callback
-                        # - base64 image
-                        # - keyframe.toString().padStart(8, 0)
-                        # - targetObject and const wrapType = detectedObject.type.replace(' ', '_');
-                        # - Prob threshold or detectedObject.percentage.slice(0, -1) > AI.default.threshold
-                        dataURL = "data:image/jpeg;base64," + \
-                            str(base64Image.decode())  # dataURL scheme
+                        dataURL = "data:image/jpeg;base64," + str(base64Image.decode())
                         bbox = [x1, y1, b.w, b.h]
                         bboxes.append(bbox)
                         confidences.append(dets[j].prob[i])
@@ -417,8 +413,12 @@ class Darknet(Process):
 
         self.resultQueue.put([robotId, videoId, msg, frame, bboxes, confidences])
 
-        # cv2.imshow('frame', frame)
-        # cv2.waitKey(1)
+        if self.isDisplay:
+            print("Darknet {} show frame".format(video_serial))
+            title = "detect : {}".format(video_serial)
+            cv2.putText(frame, "keyframe {}".format(keyframe),(30, 70), 0, 5e-3 * 100, (0,0,255), 2)
+            cv2.imshow(title, frame)
+            cv2.waitKey(1)
 
         if isinstance(arr, bytes):
             free_image(im)
@@ -459,11 +459,11 @@ def initSaveImage():
 darknetWorkers = []
 
 
-def initDarknetWorkers(numWorkers, numGpus, detectQueue, resultQueue):
+def initDarknetWorkers(numWorkers, numGpus, threshold, detectQueue, resultQueue):
     print("darknet numWorkers : {}, numGpus : {}".format(numWorkers, numGpus))
 
     for i in range(numWorkers):
-        worker = Darknet(i, numGpus, detectQueue, resultQueue)
+        worker = Darknet(i, numGpus, threshold, detectQueue, resultQueue)
         darknetWorkers.append(worker)
         worker.start()
         print("darknet worker {} started".format(i))

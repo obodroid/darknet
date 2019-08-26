@@ -73,6 +73,7 @@ dummyText = 'x' * int(8.3 * 1000000)
 class DarknetServerProtocol(WebSocketServerProtocol):
     def __init__(self):
         super(DarknetServerProtocol, self).__init__()
+        self.threshold = 0
         self.imageKeyFrame = 0
         self.numWorkers = 1
         self.numGpus = 1
@@ -102,6 +103,8 @@ class DarknetServerProtocol(WebSocketServerProtocol):
                 self.numGpus = msg['num_gpus']
             if msg['tracker_gpu_index']:
                 self.trackerGpuIndex = msg['tracker_gpu_index']
+            if msg['threshold']:
+                self.threshold = msg['threshold']
             if msg['debug']:
                 benchmark.enable = True
 
@@ -126,7 +129,7 @@ class DarknetServerProtocol(WebSocketServerProtocol):
             else:
                 darknet.initSaveImage()
                 darknet.initDarknetWorkers(
-                    self.numWorkers, self.numGpus, self.detectQueue, self.detectResultQueue)
+                    self.numWorkers, self.numGpus, self.threshold, self.detectQueue, self.detectResultQueue)
 
             return
             
@@ -191,7 +194,6 @@ class DarknetServerProtocol(WebSocketServerProtocol):
         robotId = msg['robotId']
         videoId = msg['videoId']
         stream = msg['stream']
-        threshold = msg['threshold']
         video_serial = robotId + "-" + videoId
 
         if video_serial in self.detectors:
@@ -200,7 +202,7 @@ class DarknetServerProtocol(WebSocketServerProtocol):
 
         print("processVideo {}".format(video_serial))
         detectorWorker = detector.Detector(
-            robotId, videoId, stream, threshold, self.detectCallback, self.detectQueue, self.detectThroughput)
+            robotId, videoId, stream, self.detectCallback, self.detectQueue, self.detectThroughput)
         detectorWorker.setDaemon(True)
         detectorWorker.start()
 
