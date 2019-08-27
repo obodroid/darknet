@@ -34,7 +34,7 @@ class DeepSort(Process):
         print('Tracker {}'.format(self.video_serial))
 
         max_cosine_distance = 0.3
-        nn_budget = None
+        nn_budget = 100
 
         self.encoder = gdet.create_box_encoder(imgEncPath, batch_size=1, gpu_index=self.gpuIndex)
         metric = nn_matching.NearestNeighborDistanceMetric(
