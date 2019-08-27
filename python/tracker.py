@@ -66,7 +66,7 @@ class DeepSort(Process):
                 self.tracker.predict()
                 self.tracker.update(detections)
 
-                for detection_id, detectedObject in zip(indices, msg['detectedObjects']):
+                for detection_id, detectedObject in zip(np.arange(len(msg['detectedObjects'])), msg['detectedObjects']):
                     for track in self.tracker.tracks:
                         if not track.is_confirmed() or track.time_since_update > 1 or detectedObject["confidence"] < 0.8:
                             continue
