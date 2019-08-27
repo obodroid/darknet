@@ -43,13 +43,14 @@ class DeepSort(Process):
 
         while self.isStop.value is False:
             while not self.trackingQueue.empty():
-                robotId, videoId, msg, frame, bboxes, confidences = self.trackingQueue.get()
+                robotId, videoId, msg, frame, bboxes, confidences, objectTypes = self.trackingQueue.get()
                 video_serial = robotId + "-" + videoId
-                print('Track {}'.format(video_serial))
+                print('Tracker {} at keyframe {}'.format(video_serial, msg['keyframe']))
 
                 features = self.encoder(frame, bboxes)
-                detections = [Detection(bbox, confidence, feature) for bbox,
-                              confidence, feature in zip(bboxes, confidences, features)]
+                detections = [Detection(bbox, confidence, feature, objectType) 
+                    for bbox, confidence, feature, objectType 
+                    in zip(bboxes, confidences, features, objectTypes)]
 
                 # Run non-maxima suppression.
                 boxes = np.array([d.tlwh for d in detections])
@@ -98,7 +99,10 @@ class DeepSort(Process):
                     cv2.imshow(title, frame)
                     cv2.waitKey(1)
 
-            cv2.waitKey(1)
-            sys.stdout.flush()
+                cv2.waitKey(1)
+                sys.stdout.flush()
+
+        cv2.waitKey(1)
+        sys.stdout.flush()
         
         print("Tracker {} Stopped".format(self.video_serial))

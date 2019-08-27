@@ -272,12 +272,12 @@ class DarknetServerProtocol(WebSocketServerProtocol):
     def loopTrackResult(self):
         while True:
             while not self.detectResultQueue.empty():
-                robotId, videoId, msg, frame, bboxes, confidences = self.detectResultQueue.get()
+                robotId, videoId, msg, frame, bboxes, confidences, objectTypes = self.detectResultQueue.get()
                 video_serial = robotId + "-" + videoId
                 if video_serial in self.trackingQueues:
                     print('put detection result {} to tracking queue'.format(video_serial))
                     self.trackingQueues[video_serial].put(
-                        [robotId, videoId, msg, frame, bboxes, confidences])
+                        [robotId, videoId, msg, frame, bboxes, confidences, objectTypes])
                 else:
                     self.doSendResult(video_serial, msg)
             else:

@@ -411,7 +411,7 @@ class Darknet(Process):
             "detect_time": datetime.now().isoformat(),
         }
 
-        self.resultQueue.put([robotId, videoId, msg, frame, bboxes, confidences])
+        self.resultQueue.put([robotId, videoId, msg, frame, bboxes, confidences, objectTypes])
 
         if self.isDisplay:
             print("Darknet {} show frame".format(video_serial))
