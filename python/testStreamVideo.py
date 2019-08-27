@@ -16,17 +16,16 @@ def stop(sv):
 
 if __name__ == '__main__':
     mp.set_start_method('spawn', force=True)
-    # ctx = mp.get_context('spawn')
-    
     # darknet.initDarknetWorkers(1, 4)
 
-    captureQueue = Queue(maxsize=10)
     isStop = Value(c_bool, False)
-    streamVideo = StreamVideo(stream, '1-1', captureQueue, isStop)
+    dropFrameCount = Value('i', 0)
+    detectQueue = Queue(maxsize=10)
+    detectThroughput = Value('i', 0)
+    streamVideo = StreamVideo(stream, '1-1', isStop, True, dropFrameCount, detectQueue, detectThroughput)
     streamVideo.start()
 
     t = threading.Thread(target=stop, args=(streamVideo,))
     t.start()
 
     streamVideo.join()
-    print('after join')
