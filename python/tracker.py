@@ -39,7 +39,7 @@ class DeepSort(Process):
         self.encoder = gdet.create_box_encoder(imgEncPath, batch_size=1, gpu_index=self.gpuIndex)
         metric = nn_matching.NearestNeighborDistanceMetric(
             "cosine", max_cosine_distance, nn_budget)
-        self.tracker = Tracker(metric, max_iou_distance=0.7, max_age=50, n_init=10)
+        self.tracker = Tracker(metric, max_iou_distance=0.7, max_age=50, n_init=5)
 
         while self.isStop.value is False:
             while not self.trackingQueue.empty():
