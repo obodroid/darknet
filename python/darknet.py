@@ -368,8 +368,8 @@ class Darknet(Process):
                         retval, jpgImage = cv2.imencode('.jpg', cropImage)
                         base64Image = base64.b64encode(jpgImage)
 
-                        print("Found {} at keyframe {}: object - {}, prob - {}".format(
-                            video_serial, keyframe, self.meta.names[i], dets[j].prob[i]))
+                        print("Found {} at keyframe {}: object - {}, prob - {}, x - {}, y - {}".format(
+                            video_serial, keyframe, self.meta.names[i], dets[j].prob[i], x1, y1))
 
                         # benchmark.saveImage(cropImage, self.meta.names[i])  # benchmark
 

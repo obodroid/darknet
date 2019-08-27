@@ -61,6 +61,7 @@ class DeepSort(Process):
 
                 detections = [detections[i] for i in indices]
                 msg['detectedObjects'] = [msg['detectedObjects'][i] for i in indices]
+                print("detections: {}".format([d.objectType for d in detections]))
 
                 # Call the tracker
                 self.tracker.predict()
@@ -72,8 +73,10 @@ class DeepSort(Process):
                             continue
 
                         if track.detection_id == detection_id:
-                            print("Tracker {} at keyframe {} track {} {}".format( \
-                                self.video_serial, msg['keyframe'], detectedObject["objectType"], str(track.track_id)))
+                            print("Tracker {} at keyframe {} track {} {} x {} y {}".format( \
+                                self.video_serial, msg['keyframe'], detectedObject["objectType"] \
+                                , str(track.track_id), int(track.to_tlwh()[0]), int(track.to_tlwh()[1])))
+
                             detectedObject["track_id"] = str(track.track_id)
                             tracking_bbox = track.to_tlwh()
                             detectedObject["tracking_bbox"] = {
@@ -87,7 +90,7 @@ class DeepSort(Process):
                                 bbox = track.to_tlbr()
                                 cv2.rectangle(frame, (int(bbox[0]), int(bbox[1])), (int(bbox[2]), int(bbox[3])),(255,255,255), 2)
                                 cv2.putText(frame, "{} {}".format(detectedObject["objectType"], \
-                                    str(track.track_id)),(int(bbox[0]), int(bbox[1])), 0, 5e-3 * 200, (0,255,0), 2)
+                                    str(track.track_id)),(int(bbox[0]), int(bbox[1]) - 20), 0, 5e-3 * 100, (0,255,0), 2)
                             break
 
                 self.resultQueue.put([robotId, videoId, msg])
