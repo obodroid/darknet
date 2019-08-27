@@ -225,7 +225,7 @@ class Darknet(Process):
         self.numGpus = numGpus
         self.threshold = threshold
         self.detectCount = 0
-        self.detectRate = Value('i', 0)
+        self.detectRate = Value('i', -1)
         self.detectQueue = detectQueue
         self.resultQueue = resultQueue
         self.isStop = Value(c_bool, False)

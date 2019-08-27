@@ -81,6 +81,7 @@ class DarknetServerProtocol(WebSocketServerProtocol):
         self.detectThroughput = Value('i', 0)
         self.detectQueue = Queue(maxsize=10)
         self.detectResultQueue = Queue()
+        self.isInit = False
         self.trackers = {}
         self.trackingQueues = {}
         self.trackingResultQueue = Queue()
@@ -201,6 +202,10 @@ class DarknetServerProtocol(WebSocketServerProtocol):
             return
 
         print("processVideo {}".format(video_serial))
+
+        while self.isInit is False:
+            time.sleep(0.1)
+
         detectorWorker = detector.Detector(
             robotId, videoId, stream, self.detectCallback, self.detectQueue, self.detectThroughput)
         detectorWorker.setDaemon(True)
@@ -304,6 +309,12 @@ class DarknetServerProtocol(WebSocketServerProtocol):
             'detectThroughput': self.detectThroughput.value,
         }
 
+        self.isInit = True
+        for r in msg['detectRates']:
+            if r < 0:
+                self.isInit = False
+                break
+                
         self.detectThroughput.value = 0
         self.detectCallback(msg)
 
