@@ -33,13 +33,13 @@ class DeepSort(Process):
         setproctitle.setproctitle("Tracker {}".format(self.video_serial))
         print('Tracker {}'.format(self.video_serial))
 
-        max_cosine_distance = 0.3
+        max_cosine_distance = 0.4
         nn_budget = 100
 
         self.encoder = gdet.create_box_encoder(imgEncPath, batch_size=1, gpu_index=self.gpuIndex)
         metric = nn_matching.NearestNeighborDistanceMetric(
             "cosine", max_cosine_distance, nn_budget)
-        self.tracker = Tracker(metric, max_iou_distance=0.7, max_age=50, n_init=5)
+        self.tracker = Tracker(metric, max_iou_distance=0.7, max_age=100, n_init=5)
 
         while self.isStop.value is False:
             while not self.trackingQueue.empty():
@@ -69,7 +69,7 @@ class DeepSort(Process):
 
                 for detection_id, detectedObject in zip(np.arange(len(msg['detectedObjects'])), msg['detectedObjects']):
                     for track in self.tracker.tracks:
-                        if not track.is_confirmed() or track.time_since_update > 1 or detectedObject["confidence"] < 0.8:
+                        if not track.is_confirmed() or track.time_since_update > 0 or detectedObject["confidence"] < 0.8:
                             continue
 
                         if track.detection_id == detection_id:
