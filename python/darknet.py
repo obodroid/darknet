@@ -343,6 +343,9 @@ class Darknet(Process):
         objectTypes = []
         dataURLs = []
 
+        if self.isDisplay:
+            displayFrame = frame.copy()
+
         for j in range(num):
             for i in range(self.meta.classes):
                 objectType = self.meta.names[i].decode()
@@ -359,8 +362,8 @@ class Darknet(Process):
                     y2 = y2 if y2 <= im.h else im.h
 
                     if self.isDisplay:
-                        cv2.rectangle(frame, (x1, y1), (x2, y2), classes_box_colors[1], 2)
-                        cv2.putText(frame, self.meta.names[i].decode(), (x1, y1 - 20), 1, 1, classes_font_colors[0], 2, cv2.LINE_AA)
+                        cv2.rectangle(displayFrame, (x1, y1), (x2, y2), classes_box_colors[1], 2)
+                        cv2.putText(displayFrame, self.meta.names[i].decode(), (x1, y1 - 20), 1, 1, classes_font_colors[0], 2, cv2.LINE_AA)
 
                     cropImage = frame[y1:y2, x1:x2]
                     height, width, channels = cropImage.shape
@@ -416,8 +419,8 @@ class Darknet(Process):
         if self.isDisplay:
             print("Darknet {} show frame".format(video_serial))
             title = "detect : {}".format(video_serial)
-            cv2.putText(frame, "keyframe {}".format(keyframe),(30, 70), 0, 5e-3 * 100, (0,0,255), 2)
-            cv2.imshow(title, frame)
+            cv2.putText(displayFrame, "keyframe {}".format(keyframe),(30, 70), 0, 5e-3 * 100, (0,0,255), 2)
+            cv2.imshow(title, displayFrame)
             cv2.waitKey(1)
 
         if isinstance(arr, bytes):
