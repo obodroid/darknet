@@ -277,7 +277,7 @@ class DarknetServerProtocol(WebSocketServerProtocol):
                 if video_serial in self.trackingQueues:
                     print('put detection result {} to tracking queue'.format(video_serial))
                     self.trackingQueues[video_serial].put(
-                        [robotId, videoId, msg, frame, bboxes, confidences, objectTypes])
+                        [robotId, videoId, msg, frame, bboxes, confidences, objectTypes, self.detectors[video_serial].targetObjects])
                 else:
                     self.doSendResult(video_serial, msg)
             else:
