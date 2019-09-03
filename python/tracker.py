@@ -52,18 +52,12 @@ class DeepSort(Process):
                     for bbox, confidence, feature, objectType 
                     in zip(bboxes, confidences, features, objectTypes)]
 
-                detections = [d for d in detections if d.confidence > 0.8 and d.objectType in targetObjects]
-
-                # Run non-maxima suppression.
-                boxes = np.array([d.tlwh for d in detections])
-                scores = np.array([d.confidence for d in detections])
-                nms_max_overlap = 1.0
-                indices = preprocessing.non_max_suppression(
-                    boxes, nms_max_overlap, scores)
+                indices = [i for i in np.arange(len(detections)) \
+                    if detections[i].confidence > 0.8 and detections[i].objectType in targetObjects]
 
                 detections = [detections[i] for i in indices]
                 msg['detectedObjects'] = [msg['detectedObjects'][i] for i in indices]
-                print("detections: {}".format([d.objectType for d in detections]))
+                print("detection indices: {}".format(indices))
 
                 # Call the tracker
                 self.tracker.predict()
