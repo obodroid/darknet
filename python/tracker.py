@@ -52,6 +52,8 @@ class DeepSort(Process):
                     for bbox, confidence, feature, objectType 
                     in zip(bboxes, confidences, features, objectTypes)]
 
+                detections = [d for d in detections if d.confidence > 0.8]
+
                 # Run non-maxima suppression.
                 boxes = np.array([d.tlwh for d in detections])
                 scores = np.array([d.confidence for d in detections])
@@ -71,9 +73,6 @@ class DeepSort(Process):
                     displayFrame = frame.copy()
 
                 for detection_id, detectedObject in zip(np.arange(len(msg['detectedObjects'])), msg['detectedObjects']):
-                    if detectedObject["confidence"] < 0.8:
-                        continue
-
                     for track in self.tracker.tracks:
                         if not track.is_confirmed() or track.time_since_update > 0:
                             print("Tracker {} at keyframe {} track {} missed x {} y {}".format( \
