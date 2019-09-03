@@ -123,7 +123,7 @@ class Track:
         self.mean, self.covariance = kf.predict(self.mean, self.covariance)
         self.age += 1
         self.time_since_update += 1
-        print("track id {} age {} time {} bbox {}".format(self.track_id, self.age, self.time_since_update, self.to_tlbr()))
+        print("track id {} age {} time {} bbox {}".format(self.track_id, self.age, self.time_since_update, ["%.2g" % b for b in self.to_tlbr()]))
 
     def update(self, kf, detection, detection_id):
         """Perform Kalman filter measurement update step and update the feature
