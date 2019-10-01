@@ -72,8 +72,9 @@ class DeepSort(Process):
                             print("Tracker {} at keyframe {} track {} missed x {} y {}".format( \
                                 self.video_serial, msg['keyframe'], str(track.track_id), int(track.to_tlwh()[0]), int(track.to_tlwh()[1])))
                             bbox = track.to_tlbr()
-                            cv2.rectangle(displayFrame, (int(bbox[0]), int(bbox[1])), (int(bbox[2]), int(bbox[3])),(127,127,127), 2)
-                            cv2.putText(displayFrame, "{}".format(str(track.track_id)),(int(bbox[0]), int(bbox[1]) - 20), 0, 5e-3 * 100, (0,127,0), 2)
+                            if self.isDisplay:
+                                cv2.rectangle(displayFrame, (int(bbox[0]), int(bbox[1])), (int(bbox[2]), int(bbox[3])),(127,127,127), 2)
+                                cv2.putText(displayFrame, "{}".format(str(track.track_id)),(int(bbox[0]), int(bbox[1]) - 20), 0, 5e-3 * 100, (0,127,0), 2)
                             continue
 
                         if track.detection_id == detection_id:
