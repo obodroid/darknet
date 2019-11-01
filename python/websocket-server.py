@@ -185,7 +185,7 @@ class DarknetServerProtocol(WebSocketServerProtocol):
 
         print("processImage {}".format(video_serial))
         detectorWorker = detector.Detector(
-            robotId, videoId, image, None, self.detectCallback, self.detectQueue, self.detectThroughput)
+            robotId, videoId, image, self.detectCallback, self.detectQueue, self.detectThroughput)
 
         self.imageKeyFrame += 1
         detectorWorker.keyframe = self.imageKeyFrame
