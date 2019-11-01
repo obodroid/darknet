@@ -32,6 +32,7 @@ class Detector(threading.Thread):
         self.videoId = videoId
         self.stream = stream
         self.video_serial = robotId + "-" + videoId
+        self.keyframe = 1
         self.callback = callback
         self.targetObjects = []
         self.isStop = Value(c_bool, False)
@@ -52,7 +53,7 @@ class Detector(threading.Thread):
             imgStr.seek(0)
             imgPIL = Image.open(imgStr)
             frame = cv2.cvtColor(np.asarray(imgPIL), cv2.COLOR_RGB2BGR)
-            self.detectQueue.put([self.video_serial, 1, frame, datetime.now()])
+            self.detectQueue.put([self.video_serial, self.keyframe, frame, datetime.now()])
             return
 
         streamVideo = StreamVideo(
