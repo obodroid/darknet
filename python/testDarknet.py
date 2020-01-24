@@ -33,21 +33,21 @@ class DarknetClientProtocol(WebSocketClientProtocol):
         numWorkers = args.numWorkers
         numGpus = 1 # aarch64 has only 1 gpu
         msg = {
-            "type":"SETUP",
-            "num_workers":numWorkers,
-            "num_gpus":numGpus,
-            "debug":False
+            "type" : "SETUP",
+            "num_workers": numWorkers,
+            "num_gpus": numGpus,
+            "threshold": 0.5,
+            "debug": False
         }
         jsonMsg = json.dumps(msg)
         self.sendMessage(jsonMsg.encode('utf8'))
 
     def startStream(self,stream,robotId,videoId):
         msg = {
-                "type":"START",
-                "stream":stream,
-                "robotId":robotId,
-                "videoId":videoId,
-                "threshold":"0.5"
+                "type": "START",
+                "stream": stream,
+                "robotId": robotId,
+                "videoId": videoId
             }
         jsonMsg = json.dumps(msg)
         self.sendMessage(jsonMsg.encode('utf8'))
