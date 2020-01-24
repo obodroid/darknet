@@ -77,6 +77,7 @@ class DarknetServerProtocol(WebSocketServerProtocol):
         self.imageKeyFrame = 0
         self.numWorkers = 1
         self.numGpus = 1
+        self.trackerGpuIndex = 0
         self.detectors = {}
         self.detectThroughput = Value('i', 0)
         self.detectQueue = Queue(maxsize=10)
@@ -98,16 +99,16 @@ class DarknetServerProtocol(WebSocketServerProtocol):
         msg = json.loads(raw)
 
         if msg['type'] == "SETUP":
-            if msg['num_workers']:
+            if 'num_workers' in msg:
                 self.numWorkers = msg['num_workers']
-            if msg['num_gpus']:
+            if 'num_gpus' in msg:
                 self.numGpus = msg['num_gpus']
-            if msg['tracker_gpu_index']:
+            if 'tracker_gpu_index' in msg:
                 self.trackerGpuIndex = msg['tracker_gpu_index']
-            if msg['threshold']:
+            if 'threshold' in msg:
                 self.threshold = msg['threshold']
-            if msg['debug']:
-                benchmark.enable = True
+            # if 'debug' in msg:
+            #     benchmark.enable = True
 
             t = threading.Thread(target=self.loopTrackResult)
             t.setDaemon(True)
