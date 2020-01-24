@@ -26,7 +26,6 @@ fileDir = os.path.dirname(os.path.realpath(__file__))
 sys.path.append(os.path.join(fileDir, ".."))
 darknetDir = os.path.abspath(os.path.join(fileDir, os.pardir))
 dataDir = os.path.abspath(os.path.join(fileDir, "../../data"))
-# tempDir = "/tmp/.robot-app/full_images"
 tempDir = os.path.abspath(os.path.join(fileDir, "../../tmp"))
 
 print("fileDir - {}".format(fileDir))
@@ -47,6 +46,7 @@ print("dataDir - {}".format(dataDir))
 # log.setLevel(logging.DEBUG) # anything ERROR or above
 # log.warn('Import darknet.py!')
 # log.critical('Going to load neural network over GPU!')
+
 
 def sample(probs):
     s = sum(probs)
@@ -207,13 +207,9 @@ predict_image = lib.network_predict_image
 predict_image.argtypes = [c_void_p, IMAGE]
 predict_image.restype = POINTER(c_float)
 
-# configPath = b"/src/darknet/cfg/yolov3.cfg"
-# weightPath = b"/src/data/yolo/yolov3.weights"
-# metaPath = b"/src/darknet/cfg/coco.data"
 configPath = b"/home/sr1/robot-service/docker/ror/darknet/cfg/yolov3.cfg"
 weightPath = b"/home/sr1/robot-service/docker/ror/data/yolo/yolov3.weights"
 metaPath = b"/home/sr1/robot-service/docker/ror/darknet/cfg/coco_aarch64.data"
-imgEncPath = b"/src/data/deep_sort/mars-small128.pb"
 thresh = .6
 hier_thresh = .5
 nms = .45
@@ -242,13 +238,11 @@ class Darknet(Process):
 
     def run(self):
         setproctitle.setproctitle("Darknet {}".format(self.index))
-        # gpuIndex = (self.index % self.numGpus) + \
-        #     ((1 - 1) * self.numGpus) + 1
-        # gpuIndex = (self.index % self.numGpus) + \
-        #     ((int(os.environ['CONTAINER_INDEX']) - 1) * self.numGpus) + 1
-        # set_gpu(gpuIndex)
-        # print("Load darknet worker = {} with gpuIndex = {}".format(
-        #     self.index, gpuIndex))
+        gpuIndex = (self.index % self.numGpus) + \
+            ((int(os.environ['CONTAINER_INDEX']) - 1) * self.numGpus) + 1
+        set_gpu(gpuIndex)
+        print("Load darknet worker = {} with gpuIndex = {}".format(
+            self.index, gpuIndex))
         self.net = load_net(configPath, weightPath, 0)
         self.meta = load_meta(metaPath)
         for i in range(self.meta.classes):
@@ -256,26 +250,13 @@ class Darknet(Process):
                 ' ', '_').encode()
         print("darknet {} initialized".format(self.index))
 
-        # Definition of the parameters
-        max_cosine_distance = 0.3
-        nn_budget = None
-
-        # deep_sort
-        # self.encoder = gdet.create_box_encoder(imgEncPath, batch_size=1)
-        # metric = nn_matching.NearestNeighborDistanceMetric(
-        #     "cosine", max_cosine_distance, nn_budget)
-        # self.tracker = Tracker(metric)
-
         self.monitorDetectRate()
 
         while not self.isStop.value:
-            
             try:
                 video_serial, keyframe, frame, time = self.detectQueue.get(
                     timeout=0.1)
-                print("darknet consume : {}".format(video_serial, keyframe))
                 self.nnDetect(video_serial, keyframe, frame, time)
-
             except Exception:
                 pass
             sys.stdout.flush()
@@ -336,9 +317,6 @@ class Darknet(Process):
     #     return res
 
     def nnDetect(self, video_serial, keyframe, frame, time):
-
-        # cv2.imshow('NNFrame-Input', frame)
-        # cv2.waitKey(100)
         self.detectCount += 1
         print("darknet {} nnDetect {}, keyframe {}".format(
             self.index, video_serial, keyframe))

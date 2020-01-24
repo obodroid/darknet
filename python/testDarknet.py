@@ -19,7 +19,7 @@ parser.add_argument('--stream', type=str, default="rtsp://admin:123456@192.168.1
 
 args = parser.parse_args()
 
-class MyClientProtocol(WebSocketClientProtocol):
+class DarknetClientProtocol(WebSocketClientProtocol):
 
     def onOpen(self):
         if args.setup:
@@ -68,7 +68,7 @@ if __name__ == '__main__':
 
     from autobahn.twisted.websocket import WebSocketClientFactory
     factory = WebSocketClientFactory()
-    factory.protocol = MyClientProtocol
+    factory.protocol = DarknetClientProtocol
 
     reactor.connectTCP("127.0.0.1", 9000, factory)
     reactor.run()
