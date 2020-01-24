@@ -6,15 +6,15 @@ import time
 from threading import Timer
 
 parser = argparse.ArgumentParser()
-parser.add_argument('--setup', type=bool, default=False,
-                    help='If True, initialize darknet worker. Only stream,if false')
+parser.add_argument('--setup', type=bool, default=True,
+                    help='If True, initialize darknet worker. Only stream, if False')
 parser.add_argument('--numWorkers', type=int, default=1,
                     help='num workers')
 parser.add_argument('--robotId', type=str, default="1",
                     help='robotId')
 parser.add_argument('--videoId', type=str, default="1",
                     help='videoId')
-parser.add_argument('--stream', type=str, default="rtsp://admin:12345678@192.168.1.110/ch01.264?ptype=udp",
+parser.add_argument('--stream', type=str, default="rtsp://admin:123456@192.168.1.13/ch01.264?ptype=udp",
                     help='stream')
 
 args = parser.parse_args()
@@ -29,9 +29,9 @@ class MyClientProtocol(WebSocketClientProtocol):
         nextStart.start()
 
     def setup(self):
-        #for test
+        print("Setup darknet config")
         numWorkers = args.numWorkers
-        numGpus = 1 #aarch64 has only 1 gpu
+        numGpus = 1 # aarch64 has only 1 gpu
         msg = {
             "type":"SETUP",
             "num_workers":numWorkers,
