@@ -17,11 +17,14 @@ imgEncPath = b"/src/data/deep_sort/mars-small128.pb"
 
 
 class DeepSort(Process):
-    def __init__(self, video_serial, trackingQueue, resultQueue):
+    def __init__(self, video_serial, isStop, gpuIndex, trackingQueue, resultQueue):
         Process.__init__(self)
         self.daemon = True
         self.encoder = None
         self.tracker = None
+        self.isStop = isStop
+        self.isDisplay = False
+        self.gpuIndex = gpuIndex
         self.video_serial = video_serial
         self.trackingQueue = trackingQueue
         self.resultQueue = resultQueue
@@ -30,44 +33,55 @@ class DeepSort(Process):
         setproctitle.setproctitle("Tracker {}".format(self.video_serial))
         print('Tracker {}'.format(self.video_serial))
 
-        max_cosine_distance = 0.3
-        nn_budget = None
+        max_cosine_distance = 0.45
+        nn_budget = 100
 
-        self.encoder = gdet.create_box_encoder(imgEncPath, batch_size=1)
+        self.encoder = gdet.create_box_encoder(imgEncPath, batch_size=1, gpu_index=self.gpuIndex)
         metric = nn_matching.NearestNeighborDistanceMetric(
             "cosine", max_cosine_distance, nn_budget)
-        self.tracker = Tracker(metric)
+        self.tracker = Tracker(metric, max_iou_distance=0.7, max_age=50, n_init=5)
 
-        while True:
+        while self.isStop.value is False:
             while not self.trackingQueue.empty():
-                robotId, videoId, msg, frame, bboxes, confidences = self.trackingQueue.get()
+                robotId, videoId, msg, frame, bboxes, confidences, objectTypes, targetObjects = self.trackingQueue.get()
                 video_serial = robotId + "-" + videoId
-                print('Track {}'.format(video_serial))
+                print('Tracker {} at keyframe {}'.format(video_serial, msg['keyframe']))
 
                 features = self.encoder(frame, bboxes)
-                detections = [Detection(bbox, confidence, feature) for bbox,
-                              confidence, feature in zip(bboxes, confidences, features)]
+                detections = [Detection(bbox, confidence, feature, objectType)
+                    for bbox, confidence, feature, objectType 
+                    in zip(bboxes, confidences, features, objectTypes)]
 
-                # Run non-maxima suppression.
-                boxes = np.array([d.tlwh for d in detections])
-                scores = np.array([d.confidence for d in detections])
-                nms_max_overlap = 1.0
-                indices = preprocessing.non_max_suppression(
-                    boxes, nms_max_overlap, scores)
+                indices = [i for i in np.arange(len(detections)) \
+                    if detections[i].confidence > 0.8 and detections[i].objectType in targetObjects]
 
                 detections = [detections[i] for i in indices]
                 msg['detectedObjects'] = [msg['detectedObjects'][i] for i in indices]
+                print("detection indices: {}".format(indices))
 
                 # Call the tracker
                 self.tracker.predict()
                 self.tracker.update(detections)
 
-                for detection_id, detectedObject in zip(indices, msg['detectedObjects']):
+                if self.isDisplay:
+                    displayFrame = frame.copy()
+
+                for detection_id, detectedObject in zip(np.arange(len(msg['detectedObjects'])), msg['detectedObjects']):
                     for track in self.tracker.tracks:
-                        if not track.is_confirmed() or track.time_since_update > 1:
+                        if not track.is_confirmed() or track.time_since_update > 0:
+                            print("Tracker {} at keyframe {} track {} missed x {} y {}".format( \
+                                self.video_serial, msg['keyframe'], str(track.track_id), int(track.to_tlwh()[0]), int(track.to_tlwh()[1])))
+                            bbox = track.to_tlbr()
+                            if self.isDisplay:
+                                cv2.rectangle(displayFrame, (int(bbox[0]), int(bbox[1])), (int(bbox[2]), int(bbox[3])),(127,127,127), 2)
+                                cv2.putText(displayFrame, "{}".format(str(track.track_id)),(int(bbox[0]), int(bbox[1]) - 20), 0, 5e-3 * 100, (0,127,0), 2)
                             continue
 
                         if track.detection_id == detection_id:
+                            print("Tracker {} at keyframe {} track {} {} x {} y {}".format( \
+                                self.video_serial, msg['keyframe'], detectedObject["objectType"] \
+                                , str(track.track_id), int(track.to_tlwh()[0]), int(track.to_tlwh()[1])))
+
                             detectedObject["track_id"] = str(track.track_id)
                             tracking_bbox = track.to_tlwh()
                             detectedObject["tracking_bbox"] = {
@@ -75,12 +89,28 @@ class DeepSort(Process):
                                 "y": tracking_bbox[1],
                                 "w": tracking_bbox[2],
                                 "h": tracking_bbox[3],
-                            },
-                            # bbox = track.to_tlbr()
-                            # cv2.rectangle(frame, (int(bbox[0]), int(bbox[1])), (int(bbox[2]), int(bbox[3])),(255,255,255), 2)
-                            # cv2.putText(frame, str(track.track_id),(int(bbox[0]), int(bbox[1])),0, 5e-3 * 200, (0,255,0),2)
+                            }
+
+                            if self.isDisplay:
+                                bbox = track.to_tlbr()
+                                cv2.rectangle(displayFrame, (int(bbox[0]), int(bbox[1])), (int(bbox[2]), int(bbox[3])),(255,255,255), 2)
+                                cv2.putText(displayFrame, "{} {}".format(detectedObject["objectType"], \
+                                    str(track.track_id)),(int(bbox[0]), int(bbox[1]) - 20), 0, 5e-3 * 100, (0,255,0), 2)
                             break
 
                 self.resultQueue.put([robotId, videoId, msg])
-            cv2.waitKey(1)
-            sys.stdout.flush()
+
+                if self.isDisplay:
+                    print("Tracker {} show frame".format(self.video_serial))
+                    title = "track : {}".format(self.video_serial)
+                    cv2.putText(displayFrame, "keyframe {}".format(msg['keyframe']),(30, 100), 0, 5e-3 * 100, (0,0,255), 2)
+                    cv2.imshow(title, displayFrame)
+                    cv2.waitKey(1)
+
+                cv2.waitKey(1)
+                sys.stdout.flush()
+
+        cv2.waitKey(1)
+        sys.stdout.flush()
+        
+        print("Tracker {} Stopped".format(self.video_serial))

@@ -123,6 +123,7 @@ class Track:
         self.mean, self.covariance = kf.predict(self.mean, self.covariance)
         self.age += 1
         self.time_since_update += 1
+        print("track id {} age {} time {} bbox {}".format(self.track_id, self.age, self.time_since_update, ["%.2g" % b for b in self.to_tlbr()]))
 
     def update(self, kf, detection, detection_id):
         """Perform Kalman filter measurement update step and update the feature
@@ -153,6 +154,7 @@ class Track:
             self.state = TrackState.Deleted
         elif self.time_since_update > self._max_age:
             self.state = TrackState.Deleted
+        print("mark missed track id {} time {} state {}".format(self.track_id, self.time_since_update, self.state))
 
     def is_tentative(self):
         """Returns True if this track is tentative (unconfirmed).

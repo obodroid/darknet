@@ -4,8 +4,9 @@ import threading
 import multiprocessing as mp
 from multiprocessing import Queue, Value
 from streamVideo import StreamVideo
+import darknet
 
-stream = "rtsp://admin:12345678@192.168.1.110/ch01.264?ptype=udp"
+stream = "rtsp://admin:12345678@192.168.1.101/ch01.264?ptype=udp"
 
 def stop(sv):
     print('start function')
@@ -15,15 +16,16 @@ def stop(sv):
 
 if __name__ == '__main__':
     mp.set_start_method('spawn', force=True)
-    # ctx = mp.get_context('spawn')
-    
     # darknet.initDarknetWorkers(1, 4)
 
-    captureQueue = Queue(maxsize=10)
     isStop = Value(c_bool, False)
-    dropFrameCount = Value("i", 0)
-    streamVideo = StreamVideo(stream, '1-1', isStop, dropFrameCount, captureQueue)
+    dropFrameCount = Value('i', 0)
+    detectQueue = Queue(maxsize=10)
+    detectThroughput = Value('i', 0)
+    streamVideo = StreamVideo(stream, '1-1', isStop, True, dropFrameCount, detectQueue, detectThroughput)
     streamVideo.start()
 
+    t = threading.Thread(target=stop, args=(streamVideo,))
+    t.start()
+
     streamVideo.join()
-    print('after join')

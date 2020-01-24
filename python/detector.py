@@ -27,17 +27,18 @@ sys.path.append(os.path.join(fileDir, ".."))
 
 
 class Detector(threading.Thread):
-    def __init__(self, robotId, videoId, stream, threshold, callback, detectQueue):
-        self.threshold = threshold
+    def __init__(self, robotId, videoId, stream, callback, detectQueue, detectThroughput):
         self.robotId = robotId
         self.videoId = videoId
         self.stream = stream
         self.video_serial = robotId + "-" + videoId
+        self.keyframe = 1
         self.callback = callback
         self.targetObjects = []
         self.isStop = Value(c_bool, False)
         self.dropFrameCount = Value('i', 0)
         self.detectQueue = detectQueue
+        self.detectThroughput = detectThroughput
 
         threading.Thread.__init__(self)
         print ("Detector Initialized {}".format(self.video_serial))
@@ -52,11 +53,11 @@ class Detector(threading.Thread):
             imgStr.seek(0)
             imgPIL = Image.open(imgStr)
             frame = cv2.cvtColor(np.asarray(imgPIL), cv2.COLOR_RGB2BGR)
-            self.detectQueue.put([self.video_serial, 1, frame, datetime.now()])
+            self.detectQueue.put([self.video_serial, self.keyframe, frame, datetime.now()])
             return
 
         streamVideo = StreamVideo(
-            self.stream, self.video_serial, self.isStop, self.dropFrameCount, self.detectQueue)
+            self.stream, self.video_serial, self.isStop, not self.stream.endswith("mp4"), self.dropFrameCount, self.detectQueue, self.detectThroughput)
         streamVideo.start()
         self.videoCaptureReady()
         streamVideo.join()
@@ -64,9 +65,8 @@ class Detector(threading.Thread):
         print("Detector {} Stopped".format(self.video_serial))
 
     def stopStream(self):
+        print("Detector {} stopStream".format(self.video_serial))
         self.isStop.value = True
-        print("Detector {} stopStream: isStop {} ".format(
-            self.video_serial, self.isStop.value))
 
     def updateTarget(self, targetObjects):
         print("Detector {} updateTarget {}".format(

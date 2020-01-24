@@ -17,7 +17,7 @@ import base64
 
 
 class StreamVideo(Process):
-    def __init__(self, path, video_serial, isStop, dropFrameCount, detectQueue):
+    def __init__(self, path, video_serial, isStop, isLive, dropFrameCount, detectQueue, detectThroughput):
         Process.__init__(self)
         self.daemon = True
         self.path = path
@@ -26,21 +26,24 @@ class StreamVideo(Process):
         self.fps = None
         self.isStop = isStop
         self.isDisplay = False
+        self.isLive = isLive
         self.dropCount = 0
         self.keyframe = 0
         self.previous_frame_time = datetime.now()
         self.dropFrameCount = dropFrameCount
         self.detectQueue = detectQueue
+        self.detectThroughput = detectThroughput
 
     def putLoad(self, videoSerial, keyframe, frame, time):
-        print("StreamVideo detectQueue qsize: {}".format(
-            self.detectQueue.qsize()))
+        print("StreamVideo {} detectQueue qsize: {}".format(
+            videoSerial, self.detectQueue.qsize()))
         if self.detectQueue.full():
-            print("StreamVideo drop frame {}, keyframe {}".format(
+            print("StreamVideo {} drop frame, keyframe {}".format(
                 videoSerial, keyframe))
             self.dropFrameCount.value += 1
             return
         self.detectQueue.put([videoSerial, keyframe, frame, time])
+        self.detectThroughput.value += frame.nbytes
 
     def run(self):
         setproctitle.setproctitle("Stream Video {}".format(self.video_serial))
@@ -66,25 +69,31 @@ class StreamVideo(Process):
             current_frame_time = datetime.now()
             diff_from_previous_frame = (
                 current_frame_time - self.previous_frame_time).total_seconds()
-            if diff_from_previous_frame < (1.0 / self.max_fps):
+            
+            if self.isLive and diff_from_previous_frame < (1.0 / self.max_fps):
                 self.dropCount += 1
                 # print("StreamVideo {} drop high fps frame at keyframe {} / drop count {} / time diff {}".format(
                 #     self.video_serial, self.keyframe, self.dropCount, diff_from_previous_frame))
                 continue
 
             if not grabbed:
+                print("StreamVideo {} grab failed".format(self.video_serial))
                 self.stop()
-                return
+                continue
 
             if self.isDisplay:
-                displayScreen = "video : {}".format(self.video_serial)
-                cv2.imshow(displayScreen, frame)
-                cv2.waitKey(10)
+                print("StreamVideo {} show frame {}".format(self.video_serial, self.keyframe))
+                title = "video : {}".format(self.video_serial)
+                cv2.imshow(title, frame)
+                cv2.waitKey(1)
 
             self.putLoad(self.video_serial, self.keyframe,
                          frame, current_frame_time)
             self.previous_frame_time = current_frame_time
             sys.stdout.flush()
+
+            if not self.isLive:
+                cv2.waitKey(int(1000 / self.fps))
 
         # fps.stop()
         self.stream.release()

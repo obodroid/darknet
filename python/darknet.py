@@ -225,18 +225,20 @@ fullImageDir = tempDir
 
 
 class Darknet(Process):
-    def __init__(self, index, numGpus, detectQueue, resultQueue):
+    def __init__(self, index, numGpus, threshold, detectQueue, resultQueue):
         Process.__init__(self)
         self.daemon = True
         self.net = None
         self.meta = None
         self.index = index
         self.numGpus = numGpus
+        self.threshold = threshold
         self.detectCount = 0
-        self.detectRate = Value('i', 0)
+        self.detectRate = Value('i', -1)
         self.detectQueue = detectQueue
         self.resultQueue = resultQueue
         self.isStop = Value(c_bool, False)
+        self.isDisplay = False
 
     def run(self):
         setproctitle.setproctitle("Darknet {}".format(self.index))
@@ -368,10 +370,13 @@ class Darknet(Process):
         objectTypes = []
         dataURLs = []
 
+        if self.isDisplay:
+            displayFrame = frame.copy()
+
         for j in range(num):
             for i in range(self.meta.classes):
                 objectType = self.meta.names[i].decode()
-                if dets[j].prob[i] > 0:
+                if dets[j].prob[i] > self.threshold:
                     b = dets[j].bbox
                     x1 = int(b.x - b.w / 2.)
                     y1 = int(b.y - b.h / 2.)
@@ -383,57 +388,28 @@ class Darknet(Process):
                     x2 = x2 if x2 <= im.w else im.w
                     y2 = y2 if y2 <= im.h else im.h
 
-                    # if need to show rectangular bounding box and text, you can uncomment here
-                    cv2.rectangle(frame, (x1, y1), (x2, y2), classes_box_colors[1], 2)
-                    cv2.putText(frame, self.meta.names[i].decode(), (x1, y1 - 20), 1, 1, classes_font_colors[0], 2, cv2.LINE_AA)
-                    cv2.imshow('NNFrame-{}'.format(video_serial), frame)
-                    cv2.waitKey(100)
-                    
+                    if self.isDisplay:
+                        cv2.rectangle(displayFrame, (x1, y1), (x2, y2), classes_box_colors[1], 2)
+                        cv2.putText(displayFrame, self.meta.names[i].decode(), (x1, y1 - 20), 1, 1, classes_font_colors[0], 2, cv2.LINE_AA)
+
                     cropImage = frame[y1:y2, x1:x2]
                     height, width, channels = cropImage.shape
                     if width > 0 and height > 0:
                         retval, jpgImage = cv2.imencode('.jpg', cropImage)
                         base64Image = base64.b64encode(jpgImage)
 
-                        print("Found {} at keyframe {}: object - {}, prob - {}".format(
-                            video_serial, keyframe, self.meta.names[i], dets[j].prob[i]))
+                        print("Found {} at keyframe {}: object - {}, prob - {}, x - {}, y - {}".format(
+                            video_serial, keyframe, self.meta.names[i], dets[j].prob[i], x1, y1))
 
                         # benchmark.saveImage(cropImage, self.meta.names[i])  # benchmark
 
-                        # - JSON message to send in callback
-                        # - base64 image
-                        # - keyframe.toString().padStart(8, 0)
-                        # - targetObject and const wrapType = detectedObject.type.replace(' ', '_');
-                        # - Prob threshold or detectedObject.percentage.slice(0, -1) > AI.default.threshold
-                        dataURL = "data:image/jpeg;base64," + \
-                            str(base64Image)  # dataURL scheme
+                        dataURL = "data:image/jpeg;base64," + str(base64Image.decode())
                         bbox = [x1, y1, b.w, b.h]
                         bboxes.append(bbox)
                         confidences.append(dets[j].prob[i])
                         objectTypes.append(objectType)
                         dataURLs.append(dataURL)
                         foundObject = True
-
-        # features = self.encoder(frame, bboxes)
-        # detections = [Detection(bbox, confidence, feature) for bbox,
-        #               confidence, feature in zip(bboxes, confidences, features)]
-
-        # # Run non-maxima suppression.
-        # boxes = np.array([d.tlwh for d in detections])
-        # scores = np.array([d.confidence for d in detections])
-        # nms_max_overlap = 1.0
-        # indices = preprocessing.non_max_suppression(
-        #     boxes, nms_max_overlap, scores)
-
-        # detections = [detections[i] for i in indices]
-        # bboxes = [bboxes[i] for i in indices]
-        # confidences = [confidences[i] for i in indices]
-        # objectTypes = [objectTypes[i] for i in indices]
-        # dataURLs = [dataURLs[i] for i in indices]
-
-        # # Call the tracker
-        # self.tracker.predict()
-        # self.tracker.update(detections)
 
         detectedObjects = []
         for bbox, confidence, objectType, dataURL in zip(bboxes, confidences, objectTypes, dataURLs):
@@ -448,23 +424,6 @@ class Darknet(Process):
                 "objectType": objectType,
                 "dataURL": dataURL,
             }
-            # for track in self.tracker.tracks:
-            #     if not track.is_confirmed() or track.time_since_update > 1:
-            #         continue
-
-            #     if track.detection_id == detection_id:
-            #         detectedObject["track_id"] = str(track.track_id)
-            #         tracking_bbox = track.to_tlwh()
-            #         detectedObject["tracking_bbox"] = {
-            #             "x": tracking_bbox[0],
-            #             "y": tracking_bbox[1],
-            #             "w": tracking_bbox[2],
-            #             "h": tracking_bbox[3],
-            #         },
-            #         # bbox = track.to_tlbr()
-            #         # cv2.rectangle(frame, (int(bbox[0]), int(bbox[1])), (int(bbox[2]), int(bbox[3])),(255,255,255), 2)
-            #         # cv2.putText(frame, str(track.track_id),(int(bbox[0]), int(bbox[1])),0, 5e-3 * 200, (0,255,0),2)
-            #         break
 
             detectedObjects.append(detectedObject)
 
@@ -482,7 +441,14 @@ class Darknet(Process):
             "detect_time": datetime.now().isoformat(),
         }
 
-        self.resultQueue.put([robotId, videoId, msg, frame, bboxes, confidences])
+        self.resultQueue.put([robotId, videoId, msg, frame, bboxes, confidences, objectTypes])
+
+        if self.isDisplay:
+            print("Darknet {} show frame".format(video_serial))
+            title = "detect : {}".format(video_serial)
+            cv2.putText(displayFrame, "keyframe {}".format(keyframe),(30, 70), 0, 5e-3 * 100, (0,0,255), 2)
+            cv2.imshow(title, displayFrame)
+            cv2.waitKey(1)
 
         if isinstance(arr, bytes):
             free_image(im)
@@ -522,11 +488,12 @@ def initSaveImage():
 
 darknetWorkers = []
 
-def initDarknetWorkers(numWorkers, numGpus, detectQueue, resultQueue):
+
+def initDarknetWorkers(numWorkers, numGpus, threshold, detectQueue, resultQueue):
     print("darknet numWorkers : {}, numGpus : {}".format(numWorkers, numGpus))
 
     for i in range(numWorkers):
-        worker = Darknet(i, numGpus, detectQueue, resultQueue)
+        worker = Darknet(i, numGpus, threshold, detectQueue, resultQueue)
         darknetWorkers.append(worker)
         worker.start()
         print("darknet worker {} started".format(i))

@@ -67,6 +67,7 @@ class Tracker:
         # Run matching cascade.
         matches, unmatched_tracks, unmatched_detections = \
             self._match(detections)
+        print("matches {}".format(matches))
 
         # Update track set.
         for track_idx, detection_idx in matches:
@@ -96,9 +97,11 @@ class Tracker:
             features = np.array([dets[i].feature for i in detection_indices])
             targets = np.array([tracks[i].track_id for i in track_indices])
             cost_matrix = self.metric.distance(features, targets)
+            print("cost matrix before {}".format([["%.2g" % m for m in i] for i in cost_matrix]))
             cost_matrix = linear_assignment.gate_cost_matrix(
                 self.kf, cost_matrix, tracks, dets, track_indices,
                 detection_indices)
+            print("cost matrix after {}".format([["%.2g" % m for m in i] for i in cost_matrix]))
 
             return cost_matrix
 
@@ -109,6 +112,7 @@ class Tracker:
             i for i, t in enumerate(self.tracks) if not t.is_confirmed()]
 
         # Associate confirmed tracks using appearance features.
+        print("matching_cascade confirmed_tracks {}".format(confirmed_tracks))
         matches_a, unmatched_tracks_a, unmatched_detections = \
             linear_assignment.matching_cascade(
                 gated_metric, self.metric.matching_threshold, self.max_age,
@@ -118,9 +122,13 @@ class Tracker:
         iou_track_candidates = unconfirmed_tracks + [
             k for k in unmatched_tracks_a if
             self.tracks[k].time_since_update == 1]
+        print("iou_track_candidates {}".format([t for t in iou_track_candidates]))
+
         unmatched_tracks_a = [
             k for k in unmatched_tracks_a if
             self.tracks[k].time_since_update != 1]
+
+        print("min_cost_matching")
         matches_b, unmatched_tracks_b, unmatched_detections = \
             linear_assignment.min_cost_matching(
                 iou_matching.iou_cost, self.max_iou_distance, self.tracks,
