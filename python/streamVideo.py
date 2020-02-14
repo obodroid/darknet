@@ -47,6 +47,7 @@ class StreamVideo(Process):
 
     def run(self):
         setproctitle.setproctitle("Stream Video {}".format(self.video_serial))
+        os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = "rtsp_transport;udp"
         self.stream = cv2.VideoCapture(self.path)
 
         if self.stream.isOpened():
