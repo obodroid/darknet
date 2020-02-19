@@ -134,12 +134,13 @@ class DarknetServerProtocol(WebSocketServerProtocol):
                     self.numWorkers, self.numGpus, self.threshold, self.detectQueue, self.detectResultQueue)
 
             return
-            
+
         robotId = msg['robotId']
         videoId = msg['videoId']
         video_serial = robotId + "-" + videoId
-        
-        print("server receive msg type {} from {}".format(msg['type'], video_serial))
+
+        print("server receive msg type {} from {}".format(
+            msg['type'], video_serial))
 
         if msg['type'] == "START":
             print("START - {}".format(video_serial))
@@ -150,7 +151,8 @@ class DarknetServerProtocol(WebSocketServerProtocol):
         elif msg['type'] == "UPDATE":
             print("UPDATE - {}".format(video_serial))
             if video_serial in self.detectors:
-                self.detectors[video_serial].updateTarget(msg['options']['targetObjects'])
+                self.detectors[video_serial].updateTarget(
+                    msg['options']['targetObjects'])
             if msg['options']['tracking'] is True:
                 self.trackVideo(video_serial)
             else:
@@ -183,9 +185,10 @@ class DarknetServerProtocol(WebSocketServerProtocol):
         videoId = msg['videoId']
         image = msg['stream']
         video_serial = robotId + "-" + videoId
-        
+
         self.imageKeyFrame += 1
-        print("processImage {} at keyframe {}".format(video_serial, self.imageKeyFrame))
+        print("processImage {} at keyframe {}".format(
+            video_serial, self.imageKeyFrame))
 
         detectorWorker = detector.Detector(
             robotId, videoId, image, self.detectCallback, self.detectQueue, self.detectThroughput)
@@ -258,9 +261,12 @@ class DarknetServerProtocol(WebSocketServerProtocol):
             del self.trackingQueues[video_serial]
 
     def doSendResult(self, video_serial, msg):
-        if video_serial in self.detectors:
-            msg['detectedObjects'] = [detectedObject for detectedObject in msg['detectedObjects']
-                                      if detectedObject['objectType'] in self.detectors[video_serial].targetObjects]
+        if video_serial not in self.detectors:
+            return
+
+        msg['detectedObjects'] = [detectedObject for detectedObject in msg['detectedObjects']
+                                  if detectedObject['objectType'] in self.detectors[video_serial].targetObjects]
+
         if len(msg['detectedObjects']) > 0:
             print('send detection result {}'.format(video_serial))
             self.detectCallback(msg)
@@ -277,7 +283,8 @@ class DarknetServerProtocol(WebSocketServerProtocol):
                 robotId, videoId, msg, frame, bboxes, confidences, objectTypes = self.detectResultQueue.get()
                 video_serial = robotId + "-" + videoId
                 if video_serial in self.trackingQueues:
-                    print('put detection result {} to tracking queue'.format(video_serial))
+                    print('put detection result {} to tracking queue'.format(
+                        video_serial))
                     self.trackingQueues[video_serial].put(
                         [robotId, videoId, msg, frame, bboxes, confidences, objectTypes, self.detectors[video_serial].targetObjects])
                 else:
@@ -316,7 +323,7 @@ class DarknetServerProtocol(WebSocketServerProtocol):
             if r < 0:
                 self.isInit = False
                 break
-                
+
         self.detectThroughput.value = 0
         self.detectCallback(msg)
 
