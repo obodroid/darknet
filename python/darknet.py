@@ -1,47 +1,15 @@
 from ctypes import *
-from imutils.video import FPS
-import math
-import random
-import argparse
 import cv2
 import numpy as np
 import threading
 from multiprocessing import Process, Value
-from random import randint
 from threading import Timer
-from twisted.internet import task, reactor, threads
-from twisted.internet.defer import Deferred, inlineCallbacks
 import setproctitle
 import os
-import signal
 import sys
-import json
 from datetime import datetime
 import time
 import base64
-import logging
-# import benchmark
-
-fileDir = os.path.dirname(os.path.realpath(__file__))
-sys.path.append(os.path.join(fileDir, ".."))
-
-# log = logging.getLogger() # 'root' Logger
-# console = logging.StreamHandler()
-# timeNow = datetime.fromtimestamp(time.time()).strftime('%Y-%m-%d_%H:%M:%S')
-# logFile = logging.FileHandler("/src/benchmark/darknet_bench_{}.log".format(timeNow))
-# saveDir = "/src/benchmark/images/"
-
-# format_str = '%(asctime)s\t%(levelname)s -- %(processName)s %(filename)s:%(lineno)s -- %(message)s'
-# console.setFormatter(logging.Formatter(format_str))
-# logFile.setFormatter(logging.Formatter(format_str))
-
-# log.addHandler(console) # prints to console.
-# log.addHandler(logFile) # prints to console.
-# log.setLevel(logging.DEBUG) # anything ERROR or above
-# log.warn('Import darknet.py!')
-# log.critical('Going to load neural network over GPU!')
-
-
 def sample(probs):
     s = sum(probs)
     probs = [a/s for a in probs]
@@ -231,6 +199,7 @@ class Darknet(Process):
         self.isStop = Value(c_bool, False)
         self.isDisplay = False
 
+
     def run(self):
         setproctitle.setproctitle("Darknet {}".format(self.index))
         gpuIndex = (self.index % self.numGpus) + \
@@ -256,6 +225,7 @@ class Darknet(Process):
                 pass
             sys.stdout.flush()
 
+
     def monitorDetectRate(self):
         t = threading.Timer(1.0, self.monitorDetectRate)
         t.setDaemon(True)
@@ -263,53 +233,6 @@ class Darknet(Process):
         self.detectRate.value = self.detectCount
         self.detectCount = 0
 
-    # # original import darknet with some test function
-    #
-    # def classify(net, meta, im):
-    #     out = predict_image(net, im)
-    #     res = []
-    #     for i in range(meta.classes):
-    #         res.append((meta.names[i], out[i]))
-    #     res = sorted(res, key=lambda x: -x[1])
-    #     return res
-
-    # def detect(net, meta, image, thresh=.5, hier_thresh=.5, nms=.45):
-    #     """if isinstance(image, bytes):
-    #         # image is a filename
-    #         # i.e. image = b'/darknet/data/dog.jpg'
-    #         im = load_image(image, 0, 0)
-    #     else:
-    #         # image is an nparray
-    #         # i.e. image = cv2.imread('/darknet/data/dog.jpg')
-    #         im, image = array_to_image(image)
-    #         rgbgr_image(im)
-    #     """
-    #     im, image = array_to_image(image)
-    #     rgbgr_image(im)
-    #     num = c_int(0)
-    #     pnum = pointer(num)
-    #     predict_image(net, im)
-    #     dets = get_network_boxes(net, im.w, im.h, thresh,
-    #                             hier_thresh, None, 0, pnum)
-    #     num = pnum[0]
-    #     if nms:
-    #         do_nms_obj(dets, num, meta.classes, nms)
-
-    #     res = []
-    #     for j in range(num):
-    #         a = dets[j].prob[0:meta.classes]
-    #         if any(a):
-    #             ai = np.array(a).nonzero()[0]
-    #             for i in ai:
-    #                 b = dets[j].bbox
-    #                 res.append((meta.names[i], dets[j].prob[i],
-    #                             (b.x, b.y, b.w, b.h)))
-
-    #     res = sorted(res, key=lambda x: -x[1])
-    #     if isinstance(image, bytes):
-    #         free_image(im)
-    #     free_detections(dets, num)
-    #     return res
 
     def nnDetect(self, video_serial, keyframe, frame, time):
         self.detectCount += 1
