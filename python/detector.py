@@ -14,8 +14,6 @@ import signal
 import sys
 import json
 from datetime import datetime
-from PIL import Image
-from io import BytesIO
 import time
 import base64
 import logging
@@ -48,12 +46,10 @@ class Detector(threading.Thread):
         if self.stream.startswith(head):
             print("Detector consume image {}".format(self.video_serial))
             imgData = base64.b64decode(self.stream[len(head):])
-            imgStr = BytesIO()
-            imgStr.write(imgData)
-            imgStr.seek(0)
-            imgPIL = Image.open(imgStr)
-            frame = cv2.cvtColor(np.asarray(imgPIL), cv2.COLOR_RGB2BGR)
+            imgArr = np.fromstring(imgData, np.uint8)
+            frame = cv2.imdecode(imgArr, cv2.IMREAD_COLOR)
             self.detectQueue.put([self.video_serial, self.keyframe, frame, datetime.now()])
+            print("Detector {} detectQueue qsize: {}".format(self.video_serial, self.detectQueue.qsize()))
             return
 
         streamVideo = StreamVideo(
