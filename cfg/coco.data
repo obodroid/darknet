@@ -1,8 +1,8 @@
 classes= 80
-train  = /src/darknet/data/coco/trainvalno5k.txt
-#valid  = coco_testdev
-valid = /src/darknet/data/coco_val_5k.list
-names = /src/darknet/data/coco.names
-backup = /src/darknet/backup/
+train  = /home/pjreddie/data/coco/trainvalno5k.txt
+valid  = coco_testdev
+#valid = data/coco_val_5k.list
+names = data/coco.names
+backup = /home/pjreddie/backup/
 eval=coco
 
