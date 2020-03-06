@@ -170,9 +170,9 @@ predict_image = lib.network_predict_image
 predict_image.argtypes = [c_void_p, IMAGE]
 predict_image.restype = POINTER(c_float)
 
-configPath = b"/src/darknet/cfg/yolov3.cfg"
-weightPath = b"/src/data/yolo/yolov3.weights"
-metaPath = b"/src/darknet/cfg/coco.data"
+configPath = b"/src/darknet/cfg/grandyolo.cfg"
+weightPath = b"/src/data/yolo/grandyolo_best.weights"
+metaPath = b"/src/darknet/cfg/grandyolo.data"
 thresh = .6
 hier_thresh = .5
 nms = .45
@@ -212,6 +212,8 @@ class Darknet(Process):
         for i in range(self.meta.classes):
             self.meta.names[i] = self.meta.names[i].decode().replace(
                 ' ', '_').encode()
+            print("Classes : {}".format(self.meta.names[i]))
+
         print("darknet {} initialized".format(self.index))
 
         self.monitorDetectRate()
