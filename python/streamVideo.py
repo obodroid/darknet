@@ -47,16 +47,28 @@ class StreamVideo(Process):
 
     def run(self):
         setproctitle.setproctitle("Stream Video {}".format(self.video_serial))
+        print("StreamVideo {} run VideoCapture at path {} with {}".format(
+            self.video_serial, self.path, os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"]))
         self.stream = cv2.VideoCapture(self.path)
 
         if self.stream.isOpened():
             self.fps = self.stream.get(cv2.CAP_PROP_FPS)
-            print("StreamVideo {} run VideoCapture at path {}, fps {}".format(
+            print("StreamVideo {} open VideoCapture at path {}, fps {}".format(
                 self.video_serial, self.path, self.fps))
         else:
-            print("StreamVideo {} error VideoCapture at path {}".format(
+            print("StreamVideo {} error VideoCapture at path {} => try udp rtsp transport".format(
                 self.video_serial, self.path))
-            self.stop()
+
+            os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"].replace("tcp","udp")
+            self.stream = cv2.VideoCapture(self.path)
+            if self.stream.isOpened():
+                self.fps = self.stream.get(cv2.CAP_PROP_FPS)
+                print("StreamVideo {} run VideoCapture at path {}, fps {} with {}".format(
+                    self.video_serial, self.path, self.fps, os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"]))
+            else:
+                print("StreamVideo {} error VideoCapture at path {} => stop capturing".format(
+                    self.video_serial, self.path))
+                self.stop()
 
         # fps = FPS().start()
         while self.isStop.value is False:
