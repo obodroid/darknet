@@ -93,6 +93,17 @@ class StreamVideo(Process):
                 self.stop()
                 continue
 
+            if frame.shape[1] > 1080:
+                # resize image if width is larger than 1080
+                print("StreamVideo {} original frame size {}".format(
+                    self.video_serial, frame.shape))
+                
+                scale_percent = 1080 / frame.shape[1]
+                width = int(frame.shape[1] * scale_percent)
+                height = int(frame.shape[0] * scale_percent)
+                dim = (width, height)
+                frame = cv2.resize(frame, dim, interpolation = cv2.INTER_AREA)
+
             if self.isDisplay:
                 print("StreamVideo {} show frame {}".format(self.video_serial, self.keyframe))
                 title = "video : {}".format(self.video_serial)
