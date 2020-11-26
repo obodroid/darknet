@@ -47,6 +47,11 @@ class StreamVideo(Process):
 
     def run(self):
         setproctitle.setproctitle("Stream Video {}".format(self.video_serial))
+
+        former_capture_options = os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"]
+        if self.path.endswith("sdp") and former_capture_options.find("hevc_cuvid") > -1:
+            os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = former_capture_options.replace("hevc_cuvid","h264_cuvid")
+
         print("StreamVideo {} run VideoCapture at path {} with {}".format(
             self.video_serial, self.path, os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"]))
         self.stream = cv2.VideoCapture(self.path)
@@ -69,6 +74,8 @@ class StreamVideo(Process):
                 print("StreamVideo {} error VideoCapture at path {} => stop capturing".format(
                     self.video_serial, self.path))
                 self.stop()
+
+        os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = former_capture_options
 
         # fps = FPS().start()
         while self.isStop.value is False:
