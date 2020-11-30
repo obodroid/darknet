@@ -109,7 +109,7 @@ class StreamVideo(Process):
                 width = int(frame.shape[1] * scale_percent)
                 height = int(frame.shape[0] * scale_percent)
                 dim = (width, height)
-                frame = cv2.resize(frame, dim, interpolation = cv2.INTER_AREA)
+                frame = cv2.resize(frame, dim, interpolation = cv2.INTER_NEAREST)
 
             if self.isDisplay:
                 print("StreamVideo {} show frame {}".format(self.video_serial, self.keyframe))
