@@ -4,13 +4,13 @@
 *.csv
 *.out
 *.png
-*.jpg
-*.pyc
 *.so
 *.exe
 *.dll
 *.lib
 *.dylib
+*.jpg
+*.pyc
 mnist/
 data/
 caffe/
@@ -57,5 +57,6 @@ include/darknet/
 uselib
 uselib_track
 darknet
-libdarknet.a
+
 libdarknet.so
+libdarknet.a
