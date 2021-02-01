@@ -10,21 +10,7 @@ import sys
 from datetime import datetime
 import time
 import base64
-def sample(probs):
-    s = sum(probs)
-    probs = [a/s for a in probs]
-    r = random.uniform(0, 1)
-    for i in range(len(probs)):
-        r = r - probs[i]
-        if r <= 0:
-            return i
-    return len(probs)-1
 
-
-def c_array(ctype, values):
-    arr = (ctype*len(values))()
-    arr[:] = values
-    return arr
 
 
 class BOX(Structure):
@@ -44,6 +30,9 @@ class DETECTION(Structure):
                 ("uc", POINTER(c_float)),
                 ("points", c_int)]
 
+class DETNUMPAIR(Structure):
+    _fields_ = [("num", c_int),
+                ("dets", POINTER(DETECTION))]
 
 class IMAGE(Structure):
     _fields_ = [("w", c_int),
@@ -56,6 +45,93 @@ class METADATA(Structure):
     _fields_ = [("classes", c_int),
                 ("names", POINTER(c_char_p))]
 
+def network_width(net):
+    return lib.network_width(net)
+
+def network_height(net):
+    return lib.network_height(net)
+
+def bbox2points(bbox):
+    """
+    From bounding box yolo format
+    to corner points cv2 rectangle
+    """
+    x, y, w, h = bbox
+    xmin = int(round(x - (w / 2)))
+    xmax = int(round(x + (w / 2)))
+    ymin = int(round(y - (h / 2)))
+    ymax = int(round(y + (h / 2)))
+    return xmin, ymin, xmax, ymax
+
+def class_colors(names):
+    """
+    Create a dict with one random BGR color for each
+    class name
+    """
+    return {name: (
+        random.randint(0, 255),
+        random.randint(0, 255),
+        random.randint(0, 255)) for name in names}
+
+def load_network(config_file, data_file, weights, batch_size=1):
+    """
+    load model description and weights from config files
+    args:
+        config_file (str): path to .cfg model file
+        data_file (str): path to .data model file
+        weights (str): path to weights
+    returns:
+        network: trained model
+        class_names
+        class_colors
+    """
+    network = load_net_custom(
+        config_file.encode("ascii"),
+        weights.encode("ascii"), 0, batch_size)
+    metadata = load_meta(data_file.encode("ascii"))
+    class_names = [metadata.names[i].decode("ascii") for i in range(metadata.classes)]
+    colors = class_colors(class_names)
+    return network, class_names, colors
+
+def print_detections(detections, coordinates=False):
+    print("\nObjects:")
+    for label, confidence, bbox in detections:
+        x, y, w, h = bbox
+        if coordinates:
+            print("{}: {}%    (left_x: {:.0f}   top_y:  {:.0f}   width:   {:.0f}   height:  {:.0f})".format(label, confidence, x, y, w, h))
+        else:
+            print("{}: {}%".format(label, confidence))
+
+def draw_boxes(detections, image, colors):
+    import cv2
+    for label, confidence, bbox in detections:
+        left, top, right, bottom = bbox2points(bbox)
+        cv2.rectangle(image, (left, top), (right, bottom), colors[label], 1)
+        cv2.putText(image, "{} [{:.2f}]".format(label, float(confidence)),
+                    (left, top - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5,
+                    colors[label], 2)
+    return image
+
+def decode_detection(detections):
+    decoded = []
+    for label, confidence, bbox in detections:
+        confidence = str(round(confidence * 100, 2))
+        decoded.append((str(label), confidence, bbox))
+    return decoded
+
+
+def remove_negatives(detections, class_names, num):
+    """
+    Remove all classes with 0% confidence within the detection
+    """
+    predictions = []
+    for j in range(num):
+        for idx, name in enumerate(class_names):
+            if detections[j].prob[idx] > 0:
+                bbox = detections[j].bbox
+                bbox = (bbox.x, bbox.y, bbox.w, bbox.h)
+                predictions.append((name, detections[j].prob[idx], (bbox)))
+    return predictions
 
 class IplROI(Structure):
     pass
@@ -108,7 +184,7 @@ lib.network_width.restype = c_int
 lib.network_height.argtypes = [c_void_p]
 lib.network_height.restype = c_int
 
-predict = lib.network_predict
+predict = lib.network_predict_ptr
 predict.argtypes = [c_void_p, POINTER(c_float)]
 predict.restype = POINTER(c_float)
 
@@ -120,8 +196,7 @@ make_image.argtypes = [c_int, c_int, c_int]
 make_image.restype = IMAGE
 
 get_network_boxes = lib.get_network_boxes
-get_network_boxes.argtypes = [c_void_p, c_int, c_int,
-                              c_float, c_float, POINTER(c_int), c_int, POINTER(c_int)]
+get_network_boxes.argtypes = [c_void_p, c_int, c_int, c_float, c_float, POINTER(c_int), c_int, POINTER(c_int), c_int]
 get_network_boxes.restype = POINTER(DETECTION)
 
 make_network_boxes = lib.make_network_boxes
@@ -134,7 +209,7 @@ free_detections.argtypes = [POINTER(DETECTION), c_int]
 free_ptrs = lib.free_ptrs
 free_ptrs.argtypes = [POINTER(c_void_p), c_int]
 
-network_predict = lib.network_predict
+network_predict = lib.network_predict_ptr
 network_predict.argtypes = [c_void_p, POINTER(c_float)]
 
 reset_rnn = lib.reset_rnn
@@ -143,6 +218,10 @@ reset_rnn.argtypes = [c_void_p]
 load_net = lib.load_network
 load_net.argtypes = [c_char_p, c_char_p, c_int]
 load_net.restype = c_void_p
+
+load_net_custom = lib.load_network_custom
+load_net_custom.argtypes = [c_char_p, c_char_p, c_int, c_int]
+load_net_custom.restype = c_void_p
 
 do_nms_obj = lib.do_nms_obj
 do_nms_obj.argtypes = [POINTER(DETECTION), c_int, c_int, c_float]
@@ -172,9 +251,9 @@ predict_image = lib.network_predict_image
 predict_image.argtypes = [c_void_p, IMAGE]
 predict_image.restype = POINTER(c_float)
 
-configPath = b"/src/darknet/cfg/grandyolo.cfg"
-weightPath = b"/src/data/yolo/grandyolo_best.weights"
-metaPath = b"/src/darknet/cfg/grandyolo.data"
+configPath = b"/src/darknet/cfg/yolov4.cfg"
+weightPath = b"/src/data/yolo/yolov4.weights"
+metaPath = b"/src/darknet/cfg/coco.data"
 thresh = .6
 hier_thresh = .5
 nms = .45
@@ -199,7 +278,7 @@ class Darknet(Process):
         self.detectQueue = detectQueue
         self.resultQueue = resultQueue
         self.isStop = Value(c_bool, False)
-        self.isDisplay = False
+        self.isDisplay = True
 
 
     def run(self):
@@ -254,7 +333,7 @@ class Darknet(Process):
         pnum = pointer(num)
         predict_image(self.net, im)
         dets = get_network_boxes(self.net, im.w, im.h, thresh,
-                                 hier_thresh, None, 0, pnum)
+                                 hier_thresh, None, 0, pnum,0)
         num = pnum[0]
         foundObject = False
         filename = '{}_{}.jpg'.format(video_serial, keyframe)
@@ -263,7 +342,7 @@ class Darknet(Process):
         # detector.sendLogMessage(keyframe, "feed_network")
 
         if (nms):
-            do_nms_obj(dets, num, self.meta.classes, nms)
+            do_nms_sort(dets, num, self.meta.classes, nms)
 
         bboxes = []
         confidences = []
@@ -272,12 +351,14 @@ class Darknet(Process):
 
         if self.isDisplay:
             displayFrame = frame.copy()
-
+        print(range(num))
         for j in range(num):
             for i in range(self.meta.classes):
                 objectType = self.meta.names[i].decode()
-                if dets[j].prob[i] > self.threshold:
+                if dets[j].prob[i] > 0:
                     b = dets[j].bbox
+                    print("obj",objectType)
+                    print("2.prob",dets[j].prob[i])
                     x1 = int(b.x - b.w / 2.)
                     y1 = int(b.y - b.h / 2.)
                     x2 = int(b.x + b.w / 2.)

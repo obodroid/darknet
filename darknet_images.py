@@ -28,7 +28,7 @@ def parser():
                         help="save detections bbox for each image in yolo format")
     parser.add_argument("--config_file", default="./cfg/yolov4.cfg",
                         help="path to config file")
-    parser.add_argument("--data_file", default="./cfg/coco.data",
+    parser.add_argument("--data_file", default="./cfg/cocotest.data",
                         help="path to data file")
     parser.add_argument("--thresh", type=float, default=.25,
                         help="remove detections with lower confidence")

@@ -1,17 +1,35 @@
+#requirements for opencv and images processiong
+matplotlib >= 1.4, <= 2.2.2
+numpy >= 1.1, < 2.0
+tensorflow-gpu == 1.14.0
+#requirements for kalman_filter
+#scipy >= 0.13.3, < 0.17
+scipy
+scikit-learn >= 0.18, < 0.20 #built ontop of scipy also for required for bounding box image
+
+#for platform dirs
+appdirs >= 1.4.3
+#for openssl library
+pyOpenSSL >= 17.0.0
+
+#for encypt sending data
+cryptography >= 1.8.1
+service-identity >= 16.0.0
+
+
+#for benchmark.py & stream
+imutils >= 0.5.1
+#for tracker,stream,darknet
+setproctitle == 1.1.10
+
+
+#requirements for websocket-server.py
 autobahn == 18.12.1
 imagehash == 1.0
 twisted == 18.9.0
-scipy >= 0.13.3, < 0.17
-scikit-learn >= 0.18, < 0.20
-appdirs >= 1.4.3
-pyOpenSSL >= 17.0.0
-cryptography >= 1.8.1
-service-identity >= 16.0.0
-matplotlib >= 1.4, <= 2.2.2
-numpy >= 1.1, < 2.0
-pandas >= 0.13, < 0.18
 ptvsd == 3.0.0
 websocket-client >= 0.50
-imutils >= 0.5.1
-setproctitle == 1.1.10
-tensorflow-gpu == 1.14.0
+
+#requiremens for openpose (irrelevant)
+cython #for panda requirement
+pandas #>= 0.13, < 0.18
