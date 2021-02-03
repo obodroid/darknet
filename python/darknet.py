@@ -133,51 +133,6 @@ def remove_negatives(detections, class_names, num):
                 predictions.append((name, detections[j].prob[idx], (bbox)))
     return predictions
 
-class IplROI(Structure):
-    pass
-
-
-class IplTileInfo(Structure):
-    pass
-
-
-class IplImage(Structure):
-    pass
-
-
-IplImage._fields_ = [
-    ('nSize', c_int),
-    ('ID', c_int),
-    ('nChannels', c_int),
-    ('alphaChannel', c_int),
-    ('depth', c_int),
-    ('colorModel', c_char * 4),
-    ('channelSeq', c_char * 4),
-    ('dataOrder', c_int),
-    ('origin', c_int),
-    ('align', c_int),
-    ('width', c_int),
-    ('height', c_int),
-    ('roi', POINTER(IplROI)),
-    ('maskROI', POINTER(IplImage)),
-    ('imageId', c_void_p),
-    ('tileInfo', POINTER(IplTileInfo)),
-    ('imageSize', c_int),
-    ('imageData', c_char_p),
-    ('widthStep', c_int),
-    ('BorderMode', c_int * 4),
-    ('BorderConst', c_int * 4),
-    ('imageDataOrigin', c_char_p)]
-
-
-class iplimage_t(Structure):
-    _fields_ = [('ob_refcnt', c_ssize_t),
-                ('ob_type',  py_object),
-                ('a', POINTER(IplImage)),
-                ('data', py_object),
-                ('offset', c_size_t)]
-
-
 lib = CDLL("/src/darknet/libdarknet.so", RTLD_GLOBAL)
 lib.network_width.argtypes = [c_void_p]
 lib.network_width.restype = c_int
@@ -329,8 +284,7 @@ class Darknet(Process):
         rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         im, arr = array_to_image(rgb_frame)
 
-        num = c_int(0)
-        pnum = pointer(num)
+        pnum = pointer(c_int(0))
         predict_image(self.net, im)
         dets = get_network_boxes(self.net, im.w, im.h, thresh,
                                  hier_thresh, None, 0, pnum,0)
@@ -342,12 +296,8 @@ class Darknet(Process):
         # detector.sendLogMessage(keyframe, "feed_network")
 
         if (nms):
-            do_nms_sort(dets, num, self.meta.classes, nms)
+            do_nms_obj(dets, num, self.meta.classes, nms)
 
-        bboxes = []
-        confidences = []
-        objectTypes = []
-        dataURLs = []
 
         if self.isDisplay:
             displayFrame = frame.copy()
@@ -376,11 +326,12 @@ class Darknet(Process):
                     cropImage = frame[y1:y2, x1:x2]
                     height, width, channels = cropImage.shape
                     if width > 0 and height > 0:
+                        print("if width,height>0")
                         retval, jpgImage = cv2.imencode('.jpg', cropImage)
                         base64Image = base64.b64encode(jpgImage)
 
                         print("Found {} at keyframe {}: object - {}, prob - {}, x - {}, y - {}".format(
-                            video_serial, keyframe, self.meta.names[i], dets[j].prob[i], x1, y1))
+                            video_serial, keyframe, objectType, dets[j].prob[i], x1, y1))
 
                         # benchmark.saveImage(cropImage, self.meta.names[i])  # benchmark
 
@@ -391,7 +342,12 @@ class Darknet(Process):
                         objectTypes.append(objectType)
                         dataURLs.append(dataURL)
                         foundObject = True
-
+                        print("foundObject",foundObject)
+                        print("end if width")
+                    print("end if prob>0")
+                print("end in classes")
+            print("end in range num")
+        print("start detectedObject for")
         detectedObjects = []
         for bbox, confidence, objectType, dataURL in zip(bboxes, confidences, objectTypes, dataURLs):
             detectedObject = {
@@ -407,7 +363,7 @@ class Darknet(Process):
             }
 
             detectedObjects.append(detectedObject)
-
+        print("detectedObjects",detectedObjects)
         msg = {
             "type": "DETECTED",
             "robotId": robotId,
@@ -422,14 +378,14 @@ class Darknet(Process):
             "detect_time": datetime.now().isoformat(),
         }
 
-        self.resultQueue.put([robotId, videoId, msg, frame, bboxes, confidences, objectTypes])
-
+        x=self.resultQueue.put([robotId, videoId, msg, frame, bboxes, confidences, objectTypes])
+        print("put",x)
         if self.isDisplay:
             print("Darknet {} show frame".format(video_serial))
             title = "detect : {}".format(video_serial)
             cv2.putText(displayFrame, "keyframe {}".format(keyframe),(30, 70), 0, 5e-3 * 100, (0,0,255), 2)
             cv2.imshow(title, displayFrame)
-            cv2.waitKey(1)
+            cv2.waitKey(1000)
 
         if isinstance(arr, bytes):
             free_image(im)
@@ -493,3 +449,4 @@ def getDetectRates():
         detectRates.append(darknetWorkers[i].detectRate.value)
 
     return detectRates
+
