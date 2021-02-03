@@ -298,54 +298,69 @@ class Darknet(Process):
         if (nms):
             do_nms_obj(dets, num, self.meta.classes, nms)
 
+        bboxes = []
+        confidences = []
+        objectTypes = []
+        dataURLs = []
 
         if self.isDisplay:
             displayFrame = frame.copy()
         print(range(num))
         for j in range(num):
-            for i in range(self.meta.classes):
-                objectType = self.meta.names[i].decode()
-                if dets[j].prob[i] > 0:
-                    b = dets[j].bbox
-                    print("obj",objectType)
-                    print("2.prob",dets[j].prob[i])
-                    x1 = int(b.x - b.w / 2.)
-                    y1 = int(b.y - b.h / 2.)
-                    x2 = int(b.x + b.w / 2.)
-                    y2 = int(b.y + b.h / 2.)
+        
+            print("j",j)
+            # print("bbox",dets[j].bbox)
+            print("classes",dets[j].classes)
+            # b = dets[j].bbox
+            # x1 = int(b.x - b.w / 2.)
+            # y1 = int(b.y - b.h / 2.)
+            # x2 = int(b.x + b.w / 2.)
+            # y2 = int(b.y + b.h / 2.)
+            # print("x1:{},y1:{},x2:{},y2:{}".format(x1,y1,x2,y2))
+            # print("height:{}width{}".format(b.h,b.w))
+            if dets[j].classes>0 :
+                for i in range(self.meta.classes):
+                
+                    objectType = self.meta.names[i].decode()
+                    print("i:{}, objectType:{}".format(i,objectType))
+                    if dets[j].prob[i] > self.threshold:
+                        b = dets[j].bbox
+                        print("obj",objectType)
+                        print("2.prob",dets[j].prob[i])
 
-                    x1 = x1 if x1 >= 0 else 0
-                    y1 = y1 if y1 >= 0 else 0
-                    x2 = x2 if x2 <= im.w else im.w
-                    y2 = y2 if y2 <= im.h else im.h
+                        x1 = int(b.x - b.w / 2.)
+                        y1 = int(b.y - b.h / 2.)
+                        x2 = int(b.x + b.w / 2.)
+                        y2 = int(b.y + b.h / 2.)
 
-                    if self.isDisplay:
-                        cv2.rectangle(displayFrame, (x1, y1), (x2, y2), classes_box_colors[1], 2)
-                        cv2.putText(displayFrame, self.meta.names[i].decode(), (x1, y1 - 20), 1, 1, classes_font_colors[0], 2, cv2.LINE_AA)
+                        x1 = x1 if x1 >= 0 else 0
+                        y1 = y1 if y1 >= 0 else 0
+                        x2 = x2 if x2 <= im.w else im.w
+                        y2 = y2 if y2 <= im.h else im.h
 
-                    cropImage = frame[y1:y2, x1:x2]
-                    height, width, channels = cropImage.shape
-                    if width > 0 and height > 0:
-                        print("if width,height>0")
-                        retval, jpgImage = cv2.imencode('.jpg', cropImage)
-                        base64Image = base64.b64encode(jpgImage)
+                        if self.isDisplay:
+                            cv2.rectangle(displayFrame, (x1, y1), (x2, y2), classes_box_colors[1], 2)
+                            cv2.putText(displayFrame, self.meta.names[i].decode(), (x1, y1 - 20), 1, 1, classes_font_colors[0], 2, cv2.LINE_AA)
 
-                        print("Found {} at keyframe {}: object - {}, prob - {}, x - {}, y - {}".format(
-                            video_serial, keyframe, objectType, dets[j].prob[i], x1, y1))
+                        cropImage = frame[y1:y2, x1:x2]
+                        height, width, channels = cropImage.shape
+                        if width > 0 and height > 0:
+                            print("if width,height>0")
+                            retval, jpgImage = cv2.imencode('.jpg', cropImage)
+                            base64Image = base64.b64encode(jpgImage)
+
+                            print("Found {} at keyframe {}: object - {}, prob - {}, x - {}, y - {}".format(
+                                video_serial, keyframe, objectType, dets[j].prob[i], x1, y1))
 
                         # benchmark.saveImage(cropImage, self.meta.names[i])  # benchmark
 
-                        dataURL = "data:image/jpeg;base64," + str(base64Image.decode())
-                        bbox = [x1, y1, b.w, b.h]
-                        bboxes.append(bbox)
-                        confidences.append(dets[j].prob[i])
-                        objectTypes.append(objectType)
-                        dataURLs.append(dataURL)
-                        foundObject = True
-                        print("foundObject",foundObject)
-                        print("end if width")
-                    print("end if prob>0")
-                print("end in classes")
+                            dataURL = "data:image/jpeg;base64," + str(base64Image.decode())
+                            bbox = [x1, y1, b.w, b.h]
+                            bboxes.append(bbox)
+                            confidences.append(dets[j].prob[i])
+                            objectTypes.append(objectType)
+                            dataURLs.append(dataURL)
+                            foundObject = True
             print("end in range num")
         print("start detectedObject for")
         detectedObjects = []
@@ -363,7 +378,7 @@ class Darknet(Process):
             }
 
             detectedObjects.append(detectedObject)
-        print("detectedObjects",detectedObjects)
+        # print("detectedObjects",detectedObjects)
         msg = {
             "type": "DETECTED",
             "robotId": robotId,
@@ -385,7 +400,7 @@ class Darknet(Process):
             title = "detect : {}".format(video_serial)
             cv2.putText(displayFrame, "keyframe {}".format(keyframe),(30, 70), 0, 5e-3 * 100, (0,0,255), 2)
             cv2.imshow(title, displayFrame)
-            cv2.waitKey(1000)
+            cv2.waitKey(1)
 
         if isinstance(arr, bytes):
             free_image(im)
