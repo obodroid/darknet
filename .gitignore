@@ -56,6 +56,10 @@ include/darknet/
 uselib
 uselib_track
 darknet
+<<<<<<< HEAD
 
 libdarknet.so
 libdarknet.a
+=======
+vcpkg/
+>>>>>>> 64efa721ede91cd8ccc18257f98eeba43b73a6af
