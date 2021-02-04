@@ -89,9 +89,10 @@ def load_network(config_file, data_file, weights, batch_size=1):
         config_file.encode("ascii"),
         weights.encode("ascii"), 0, batch_size)
     metadata = load_meta(data_file.encode("ascii"))
-    class_names = [metadata.names[i].decode("ascii") for i in range(metadata.classes)]
-    colors = class_colors(class_names)
-    return network, class_names, colors
+    class_names = [metadata.names[i].decode("ascii")for i in range(metadata.classes)]
+    print(class_names)
+    #colors = class_colors(class_names)
+    return network, class_names, #colors
 
 def print_detections(detections, coordinates=False):
     print("\nObjects:")
@@ -133,92 +134,6 @@ def remove_negatives(detections, class_names, num):
                 predictions.append((name, detections[j].prob[idx], (bbox)))
     return predictions
 
-lib = CDLL("/src/darknet/libdarknet.so", RTLD_GLOBAL)
-lib.network_width.argtypes = [c_void_p]
-lib.network_width.restype = c_int
-lib.network_height.argtypes = [c_void_p]
-lib.network_height.restype = c_int
-
-predict = lib.network_predict_ptr
-predict.argtypes = [c_void_p, POINTER(c_float)]
-predict.restype = POINTER(c_float)
-
-set_gpu = lib.cuda_set_device
-set_gpu.argtypes = [c_int]
-
-make_image = lib.make_image
-make_image.argtypes = [c_int, c_int, c_int]
-make_image.restype = IMAGE
-
-get_network_boxes = lib.get_network_boxes
-get_network_boxes.argtypes = [c_void_p, c_int, c_int, c_float, c_float, POINTER(c_int), c_int, POINTER(c_int), c_int]
-get_network_boxes.restype = POINTER(DETECTION)
-
-make_network_boxes = lib.make_network_boxes
-make_network_boxes.argtypes = [c_void_p]
-make_network_boxes.restype = POINTER(DETECTION)
-
-free_detections = lib.free_detections
-free_detections.argtypes = [POINTER(DETECTION), c_int]
-
-free_ptrs = lib.free_ptrs
-free_ptrs.argtypes = [POINTER(c_void_p), c_int]
-
-network_predict = lib.network_predict_ptr
-network_predict.argtypes = [c_void_p, POINTER(c_float)]
-
-reset_rnn = lib.reset_rnn
-reset_rnn.argtypes = [c_void_p]
-
-load_net = lib.load_network
-load_net.argtypes = [c_char_p, c_char_p, c_int]
-load_net.restype = c_void_p
-
-load_net_custom = lib.load_network_custom
-load_net_custom.argtypes = [c_char_p, c_char_p, c_int, c_int]
-load_net_custom.restype = c_void_p
-
-do_nms_obj = lib.do_nms_obj
-do_nms_obj.argtypes = [POINTER(DETECTION), c_int, c_int, c_float]
-
-do_nms_sort = lib.do_nms_sort
-do_nms_sort.argtypes = [POINTER(DETECTION), c_int, c_int, c_float]
-
-free_image = lib.free_image
-free_image.argtypes = [IMAGE]
-
-letterbox_image = lib.letterbox_image
-letterbox_image.argtypes = [IMAGE, c_int, c_int]
-letterbox_image.restype = IMAGE
-
-load_meta = lib.get_metadata
-lib.get_metadata.argtypes = [c_char_p]
-lib.get_metadata.restype = METADATA
-
-load_image = lib.load_image_color
-load_image.argtypes = [c_char_p, c_int, c_int]
-load_image.restype = IMAGE
-
-rgbgr_image = lib.rgbgr_image
-rgbgr_image.argtypes = [IMAGE]
-
-predict_image = lib.network_predict_image
-predict_image.argtypes = [c_void_p, IMAGE]
-predict_image.restype = POINTER(c_float)
-
-configPath = b"/src/darknet/cfg/yolov4.cfg"
-weightPath = b"/src/data/yolo/yolov4.weights"
-metaPath = b"/src/darknet/cfg/coco.data"
-thresh = .6
-hier_thresh = .5
-nms = .45
-bufferSize = 3
-maxTimeout = 10  # secs
-
-isNeedSaveImage = True
-fullImageDir = "/tmp/.robot-app/full_images"
-
-
 class Darknet(Process):
     def __init__(self, index, numGpus, threshold, detectQueue, resultQueue):
         Process.__init__(self)
@@ -243,12 +158,14 @@ class Darknet(Process):
         set_gpu(gpuIndex)
         print("Load darknet worker = {} with gpuIndex = {}".format(
             self.index, gpuIndex))
-        self.net = load_net(configPath, weightPath, 0)
-        self.meta = load_meta(metaPath)
-        for i in range(self.meta.classes):
-            self.meta.names[i] = self.meta.names[i].decode().replace(
-                ' ', '_').encode()
-            print("Classes : {}".format(self.meta.names[i]))
+        network, class_names = load_network(configPath,metaPath,weightPath,1)
+        self.net=network
+        # self.net = load_net(configPath, weightPath, 0)
+        # self.meta = load_meta(metaPath)
+        # for i in range(self.meta.classes):
+        #     self.meta.names[i] = self.meta.names[i].decode().replace(
+        #         ' ', '_').encode()
+        #     print("Classes : {}".format(self.meta.names[i]))
 
         print("darknet {} initialized".format(self.index))
 
@@ -258,7 +175,7 @@ class Darknet(Process):
             try:
                 video_serial, keyframe, frame, time = self.detectQueue.get(
                     timeout=0.1)
-                self.nnDetect(video_serial, keyframe, frame, time)
+                self.nnDetect(video_serial, keyframe, frame, time,class_names)
             except Exception:
                 pass
             sys.stdout.flush()
@@ -272,7 +189,7 @@ class Darknet(Process):
         self.detectCount = 0
 
 
-    def nnDetect(self, video_serial, keyframe, frame, time):
+    def nnDetect(self, video_serial, keyframe, frame, time,class_names):
         self.detectCount += 1
         print("darknet {} nnDetect {}, keyframe {}".format(
             self.index, video_serial, keyframe))
@@ -296,7 +213,7 @@ class Darknet(Process):
         # detector.sendLogMessage(keyframe, "feed_network")
 
         if (nms):
-            do_nms_obj(dets, num, self.meta.classes, nms)
+            do_nms_sort(dets, num, len(class_names), nms)
 
         bboxes = []
         confidences = []
@@ -306,8 +223,9 @@ class Darknet(Process):
         if self.isDisplay:
             displayFrame = frame.copy()
         print(range(num))
-        for j in range(num):
-        
+        y=(j for j in range(num)  if j==0)
+        #for j in range(num) if j==0:
+        for j in range(num) if j ==0 :
             print("j",j)
             # print("bbox",dets[j].bbox)
             print("classes",dets[j].classes)
@@ -318,11 +236,12 @@ class Darknet(Process):
             # y2 = int(b.y + b.h / 2.)
             # print("x1:{},y1:{},x2:{},y2:{}".format(x1,y1,x2,y2))
             # print("height:{}width{}".format(b.h,b.w))
-            for i in range(self.meta.classes):
-                
-                objectType = self.meta.names[i].decode()
-                print("i:{}, objectType:{}".format(i,objectType))
-                if dets[j].prob[i] > self.threshold:
+            for idx,name in enumerate(class_names):
+                objectType=class_names[idx]
+                print(objectType)
+                #objectType = self.meta.names[i].decode() #objectType=class_names
+                #print("i:{}, objectType:{}".format(i,objectType))
+                if dets[j].prob[idx] > self.threshold:
                     b = dets[j].bbox
                     print("obj",objectType)
                     print("2.prob",dets[j].prob[i])
@@ -339,7 +258,7 @@ class Darknet(Process):
 
                     if self.isDisplay:
                         cv2.rectangle(displayFrame, (x1, y1), (x2, y2), classes_box_colors[1], 2)
-                        cv2.putText(displayFrame, self.meta.names[i].decode(), (x1, y1 - 20), 1, 1, classes_font_colors[0], 2, cv2.LINE_AA)
+                        cv2.putText(displayFrame, class_names, (x1, y1 - 20), 1, 1, classes_font_colors[0], 2, cv2.LINE_AA)
 
                     cropImage = frame[y1:y2, x1:x2]
                     height, width, channels = cropImage.shape
@@ -356,7 +275,7 @@ class Darknet(Process):
                         dataURL = "data:image/jpeg;base64," + str(base64Image.decode())
                         bbox = [x1, y1, b.w, b.h]
                         bboxes.append(bbox)
-                        confidences.append(dets[j].prob[i])
+                        confidences.append(dets[j].prob[idx])
                         objectTypes.append(objectType)
                         dataURLs.append(dataURL)
                         foundObject = True
@@ -464,3 +383,87 @@ def getDetectRates():
 
     return detectRates
 
+lib = CDLL("/src/darknet/libdarknet.so", RTLD_GLOBAL)
+lib.network_width.argtypes = [c_void_p]
+lib.network_width.restype = c_int
+lib.network_height.argtypes = [c_void_p]
+lib.network_height.restype = c_int
+
+predict = lib.network_predict_ptr
+predict.argtypes = [c_void_p, POINTER(c_float)]
+predict.restype = POINTER(c_float)
+
+set_gpu = lib.cuda_set_device
+set_gpu.argtypes = [c_int]
+
+make_image = lib.make_image
+make_image.argtypes = [c_int, c_int, c_int]
+make_image.restype = IMAGE
+
+get_network_boxes = lib.get_network_boxes
+get_network_boxes.argtypes = [c_void_p, c_int, c_int, c_float, c_float, POINTER(c_int), c_int, POINTER(c_int), c_int]
+get_network_boxes.restype = POINTER(DETECTION)
+
+make_network_boxes = lib.make_network_boxes
+make_network_boxes.argtypes = [c_void_p]
+make_network_boxes.restype = POINTER(DETECTION)
+
+free_detections = lib.free_detections
+free_detections.argtypes = [POINTER(DETECTION), c_int]
+
+free_ptrs = lib.free_ptrs
+free_ptrs.argtypes = [POINTER(c_void_p), c_int]
+
+network_predict = lib.network_predict_ptr
+network_predict.argtypes = [c_void_p, POINTER(c_float)]
+
+reset_rnn = lib.reset_rnn
+reset_rnn.argtypes = [c_void_p]
+
+load_net = lib.load_network
+load_net.argtypes = [c_char_p, c_char_p, c_int]
+load_net.restype = c_void_p
+
+load_net_custom = lib.load_network_custom
+load_net_custom.argtypes = [c_char_p, c_char_p, c_int, c_int]
+load_net_custom.restype = c_void_p
+
+do_nms_obj = lib.do_nms_obj
+do_nms_obj.argtypes = [POINTER(DETECTION), c_int, c_int, c_float]
+
+do_nms_sort = lib.do_nms_sort
+do_nms_sort.argtypes = [POINTER(DETECTION), c_int, c_int, c_float]
+
+free_image = lib.free_image
+free_image.argtypes = [IMAGE]
+
+letterbox_image = lib.letterbox_image
+letterbox_image.argtypes = [IMAGE, c_int, c_int]
+letterbox_image.restype = IMAGE
+
+load_meta = lib.get_metadata
+lib.get_metadata.argtypes = [c_char_p]
+lib.get_metadata.restype = METADATA
+
+load_image = lib.load_image_color
+load_image.argtypes = [c_char_p, c_int, c_int]
+load_image.restype = IMAGE
+
+rgbgr_image = lib.rgbgr_image
+rgbgr_image.argtypes = [IMAGE]
+
+predict_image = lib.network_predict_image
+predict_image.argtypes = [c_void_p, IMAGE]
+predict_image.restype = POINTER(c_float)
+
+configPath = "/src/darknet/cfg/yolov4.cfg"
+weightPath = "/src/data/yolo/yolov4.weights"
+metaPath = "/src/darknet/cfg/coco.data"
+thresh = .6
+hier_thresh = .5
+nms = .45
+bufferSize = 3
+maxTimeout = 10  # secs
+
+isNeedSaveImage = True
+fullImageDir = "/tmp/.robot-app/full_images"

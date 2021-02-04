@@ -513,4 +513,5 @@ install(FILES
   "${PROJECT_BINARY_DIR}${CMAKE_FILES_DIRECTORY}/DarknetConfig.cmake"
   "${PROJECT_BINARY_DIR}/DarknetConfigVersion.cmake"
   DESTINATION "${INSTALL_CMAKE_DIR}"
+
 )
