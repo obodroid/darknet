@@ -98,8 +98,7 @@ def load_network(config_file, data_file, weights, batch_size=1):
         config_file.encode("ascii"),
         weights.encode("ascii"), 0, batch_size)
     metadata = load_meta(data_file.encode("ascii"))
-    class_names = [metadata.names[i].decode("ascii")for i in range(metadata.classes)]
-    print(class_names)
+    class_names = [metadata.names[i].decode("ascii") for i in range(metadata.classes)]
     colors = class_colors(class_names)
     return network, class_names, colors
 
