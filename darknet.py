@@ -144,6 +144,9 @@ def decode_detection(detections):
     for label, confidence, bbox in detections:
         confidence = str(round(confidence * 100, 2))
         decoded.append((str(label), confidence, bbox))
+        print("label",label)
+        print("confidence",confidence)
+        print("bbox",bbox)
     return decoded
 
 
@@ -152,7 +155,15 @@ def remove_negatives(detections, class_names, num):
     Remove all classes with 0% confidence within the detection
     """
     predictions = []
+    print(range(num))
     for j in range(num):
+        print(j)
+        print("detections",detections)
+        print("type detections",type(detections))
+        print(" detections[j]",detections[j])
+        print("type detections[j]",type(detections[j]))
+        print("classes",detections[j].classes)
+        print("type classes",type(detections[j].classes))
         for idx, name in enumerate(class_names):
             if detections[j].prob[idx] > 0:
                 bbox = detections[j].bbox

@@ -92,6 +92,7 @@ def load_network(config_file, data_file, weights, batch_size=1):
     class_names = [metadata.names[i].decode("ascii")for i in range(metadata.classes)]
     print(class_names)
     colors = class_colors(class_names)
+    print("will it break?")
     return network, class_names, colors
 
 def print_detections(detections, coordinates=False):
@@ -129,38 +130,29 @@ def remove_negatives(detections, class_names, num):
     for j in range(num):
         print(j)
         print("detections",detections)
-        print("type detections",type(detections))
-        print(" detections[j]",detections[j])
-        print("type detections[j]",type(detections[j]))
+        print("detections[j]",detections[j])
         print("classes",detections[j].classes)
-        print("type classes",type(detections[j].classes))
         for idx, name in enumerate(class_names):
             if detections[j].prob[idx] > 0:
                 bbox = detections[j].bbox
                 bbox = (bbox.x, bbox.y, bbox.w, bbox.h)
-                # x1 = int(bbox.x - b.w / 2.)
-                # y1 = int(b.y - b.h / 2.)
-                # x2 = int(b.x + b.w / 2.)
-                # y2 = int(b.y + b.h / 2.)
-                # x1 = x1 if x1 >= 0 else 0
-                # y1 = y1 if y1 >= 0 else 0
-                # x2 = x2 if x2 <= im.w else im.w
-                # y2 = y2 if y2 <= im.h else im.h
                 predictions.append((name, detections[j].prob[idx], (bbox)))
     return predictions
 
+
 def detect_image(network, class_names, image, thresh=.5, hier_thresh=.5, nms=.45):
-    """
-        Returns a list with highest confidence class and their bbox
-    """
+        # """
+        # Returns a list with highest confidence class and their bbox
+        # """
     pnum = pointer(c_int(0))
     predict_image(network, image)
-    detections = get_network_boxes(network, image.w, image.h,
-                                   thresh, hier_thresh, None, 0, pnum, 0)
+    detections = get_network_boxes(network, image.w, image.h,thresh, hier_thresh, None, 0, pnum, 0)
     num = pnum[0]
     if nms:
         do_nms_sort(detections, num, len(class_names), nms)
+    print("here")
     predictions = remove_negatives(detections, class_names, num)
+    print("break before")
     predictions = decode_detection(predictions)
     free_detections(detections, num)
     return sorted(predictions, key=lambda x: x[1])
@@ -189,15 +181,8 @@ class Darknet(Process):
         set_gpu(gpuIndex)
         print("Load darknet worker = {} with gpuIndex = {}".format(
             self.index, gpuIndex))
-        network, class_names ,class_colors= load_network(configPath,metaPath,weightPath,1)
-        self.net=network
-        # self.net = load_net(configPath, weightPath, 0)
-        # self.meta = load_meta(metaPath)
-        # for i in range(self.meta.classes):
-        #     self.meta.names[i] = self.meta.names[i].decode().replace(
-        #         ' ', '_').encode()
-        #     print("Classes : {}".format(self.meta.names[i]))
-
+        self.net,class_names,class_colors = load_network(configPath,metaPath,weightPath,1)
+        print("1")
         print("darknet {} initialized".format(self.index))
 
         self.monitorDetectRate()
@@ -206,7 +191,6 @@ class Darknet(Process):
             try:
                 video_serial, keyframe, frame, time = self.detectQueue.get(
                     timeout=0.1)
-                print("video_serial",video_serial)
                 self.nnDetect(video_serial, keyframe, frame, time,class_names)
             except Exception:
                 pass
@@ -220,102 +204,66 @@ class Darknet(Process):
         self.detectRate.value = self.detectCount
         self.detectCount = 0
 
+    def detect_image(self, network, class_names, image, thresh=.5, hier_thresh=.5, nms=.45):
+        # """
+        # Returns a list with highest confidence class and their bbox
+        # """
+        pnum = pointer(c_int(0))
+        predict_image(network, image)
+        detections = get_network_boxes(network, image.w, image.h,
+                                   thresh, hier_thresh, None, 0, pnum, 0)
+        num = pnum[0]
+        if nms:
+            do_nms_sort(detections, num, len(class_names), nms)
+        predictions = remove_negatives(detections, class_names, num)
+        predictions = decode_detection(predictions)
+        free_detections(detections, num)
+        return sorted(predictions, key=lambda x: x[1])
 
     def nnDetect(self, video_serial, keyframe, frame, time,class_names):
         self.detectCount += 1
-        print("darknet {} nnDetect {}, keyframe {}".format(
-            self.index, video_serial, keyframe))
-        robotId, videoId = video_serial.split('-')
+        # print("darknet {} nnDetect {}, keyframe {}".format(
+        #     self.index, video_serial, keyframe))
+        # robotId, videoId = video_serial.split('-')
         # red for palmup --> stop, green for thumbsup --> go
         classes_box_colors = [(0, 0, 255), (0, 255, 0)]
         classes_font_colors = [(255, 255, 0), (0, 255, 255)]
-
-        rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-        im, arr = array_to_image(rgb_frame)
-
-        pnum = pointer(c_int(0))
-        predict_image(self.net, im)
-        dets = get_network_boxes(self.net, im.w, im.h, thresh,
-                                 hier_thresh, None, 0, pnum,0)
-        num = pnum[0]
         foundObject = False
-        filename = '{}_{}.jpg'.format(video_serial, keyframe)
-        filepath = '{}/{}'.format(fullImageDir, filename)
-
-        # detector.sendLogMessage(keyframe, "feed_network")
-
-        if (nms):
-            do_nms_sort(dets, num, len(class_names), nms)
-
+        # filename = '{}_{}.jpg'.format(video_serial, keyframe)
+        # filepath = '{}/{}'.format(fullImageDir, filename)
         bboxes = []
         confidences = []
         objectTypes = []
         dataURLs = []
-
         if self.isDisplay:
             displayFrame = frame.copy()
+        
+        detections=detect_image(self.net,class_names,frame,thresh,hier_thresh,nms)
+
         print(range(num))
-        #y=(j for j in range(num)  if j==0)
-        #for j in range(num) if j==0:
-        for j in range(num):
-            print("j",j)
-            # print("bbox",dets[j].bbox)
-            print("x")
-            print("dets:",dets)
-            print("classes",dets[j].classes)
-            # b = dets[j].bbox
-            # x1 = int(b.x - b.w / 2.)
-            # y1 = int(b.y - b.h / 2.)
-            # x2 = int(b.x + b.w / 2.)
-            # y2 = int(b.y + b.h / 2.)
-            # print("x1:{},y1:{},x2:{},y2:{}".format(x1,y1,x2,y2))
-            # print("height:{}width{}".format(b.h,b.w))
-            for idx,name in enumerate(class_names):
-                objectType=class_names[idx]
-                print(objectType)
-                #objectType = self.meta.names[i].decode() #objectType=class_names
-                #print("i:{}, objectType:{}".format(i,objectType))
-                if dets[j].prob[idx] > self.threshold:
-                    b = dets[j].bbox
-                    print("obj",objectType)
-                    print("2.prob",dets[j].prob[i])
+        
+        predictions,x1,y1,x2,y2= remove_negatives(detections, class_names, num)
+        
+        if self.isDisplay:
+            cv2.rectangle(displayFrame, (x1, y1), (x2, y2), classes_box_colors[1], 2)
+            cv2.putText(displayFrame, class_names, (x1, y1 - 20), 1, 1, classes_font_colors[0], 2, cv2.LINE_AA)
+            cv2.waitKey(1)
 
-                    x1 = int(b.x - b.w / 2.)
-                    y1 = int(b.y - b.h / 2.)
-                    x2 = int(b.x + b.w / 2.)
-                    y2 = int(b.y + b.h / 2.)
-
-                    x1 = x1 if x1 >= 0 else 0
-                    y1 = y1 if y1 >= 0 else 0
-                    x2 = x2 if x2 <= im.w else im.w
-                    y2 = y2 if y2 <= im.h else im.h
-
-                    if self.isDisplay:
-                        cv2.rectangle(displayFrame, (x1, y1), (x2, y2), classes_box_colors[1], 2)
-                        cv2.putText(displayFrame, class_names, (x1, y1 - 20), 1, 1, classes_font_colors[0], 2, cv2.LINE_AA)
-                        cv2.waitKey(1000)
-
-                    cropImage = frame[y1:y2, x1:x2]
-                    height, width, channels = cropImage.shape
-                    if width > 0 and height > 0:
-                        print("if width,height>0")
-                        retval, jpgImage = cv2.imencode('.jpg', cropImage)
-                        base64Image = base64.b64encode(jpgImage)
-
-                        print("Found {} at keyframe {}: object - {}, prob - {}, x - {}, y - {}".format(
-                            video_serial, keyframe, objectType, dets[j].prob[i], x1, y1))
-
-                        # benchmark.saveImage(cropImage, self.meta.names[i])  # benchmark
-
-                        dataURL = "data:image/jpeg;base64," + str(base64Image.decode())
-                        bbox = [x1, y1, b.w, b.h]
-                        bboxes.append(bbox)
-                        confidences.append(dets[j].prob[idx])
-                        objectTypes.append(objectType)
-                        dataURLs.append(dataURL)
-                        foundObject = True
-            print("end in range num")
-        print("start detectedObject for")
+            cropImage = frame[y1:y2, x1:x2]
+            height, width, channels = cropImage.shape
+            if width > 0 and height > 0:
+                print("if width,height>0")
+                retval, jpgImage = cv2.imencode('.jpg', cropImage)
+                base64Image = base64.b64encode(jpgImage)
+                print("Found {} at keyframe {}: object - {}, prob - {}, x - {}, y - {}".format(
+                 video_serial, keyframe, objectType, detections[j].prob[i], x1, y1))
+                dataURL = "data:image/jpeg;base64," + str(base64Image.decode())
+                bbox = [x1, y1, b.w, b.h]
+                bboxes.append(bbox)
+                confidences.append(detections[j].prob[idx])
+                objectTypes.append(objectType)
+                dataURLs.append(dataURL)
+                foundObject = True
         detectedObjects = []
         for bbox, confidence, objectType, dataURL in zip(bboxes, confidences, objectTypes, dataURLs):
             detectedObject = {
@@ -329,7 +277,6 @@ class Darknet(Process):
                 "objectType": objectType,
                 "dataURL": dataURL,
             }
-
             detectedObjects.append(detectedObject)
         # print("detectedObjects",detectedObjects)
         msg = {
@@ -346,8 +293,7 @@ class Darknet(Process):
             "detect_time": datetime.now().isoformat(),
         }
 
-        x=self.resultQueue.put([robotId, videoId, msg, frame, bboxes, confidences, objectTypes])
-        print("put",x)
+        self.resultQueue.put([robotId, videoId, msg, frame, bboxes, confidences, objectTypes])
         if self.isDisplay:
             print("Darknet {} show frame".format(video_serial))
             title = "detect : {}".format(video_serial)
@@ -355,14 +301,11 @@ class Darknet(Process):
             cv2.imshow(title, displayFrame)
             cv2.waitKey(1)
 
-        if isinstance(arr, bytes):
-            free_image(im)
-        free_detections(dets, num)
+        free_detections(detections, num)
 
         if isNeedSaveImage and foundObject:
             t = threading.Thread(target=saveImage, args=(filepath, frame))
             t.start()
-
 
 
 def array_to_image(arr):
@@ -419,8 +362,94 @@ def getDetectRates():
 
     return detectRates
 
-hasGPU=True
-lib = CDLL("/src/darknet/libdarknet.so", RTLD_GLOBAL)
+def load_images(images_path):
+    """
+    If image path is given, return it directly
+    For txt file, read it and return each line as image path
+    In other case, it's a folder, return a list with names of each
+    jpg, jpeg and png file
+    """
+    input_path_extension = images_path.split('.')[-1]
+    if input_path_extension in ['jpg', 'jpeg', 'png']:
+        return [images_path]
+    elif input_path_extension == "txt":
+        with open(images_path, "r") as f:
+            return f.read().splitlines()
+    else:
+        return glob.glob(
+            os.path.join(images_path, "*.jpg")) + \
+            glob.glob(os.path.join(images_path, "*.png")) + \
+            glob.glob(os.path.join(images_path, "*.jpeg"))
+
+def main():
+
+    random.seed(3)  # deterministic bbox colors
+    network,class_names,class_colors = load_network(configPath,metaPath,weightPath,1)
+    
+
+    images = load_images(args.input)
+
+    index = 0
+    while True:
+        prev_time = time.time()
+        image, detections = image_detection(
+            image_name, network, class_names, class_colors, args.thresh
+            )
+        if args.save_labels:
+            save_annotations(image_name, image, detections, class_names)
+        darknet.print_detections(detections, args.ext_output)
+        fps = int(1/(time.time() - prev_time))
+        print("FPS: {}".format(fps))
+        if not args.dont_show:
+            cv2.imshow('Inference', image)
+            if cv2.waitKey() & 0xFF == ord('q'):
+                break
+        index += 1
+
+
+
+hasGPU = True
+if os.name == "nt":
+    cwd = os.path.dirname(__file__)
+    os.environ['PATH'] = cwd + ';' + os.environ['PATH']
+    winGPUdll = os.path.join(cwd, "yolo_cpp_dll.dll")
+    winNoGPUdll = os.path.join(cwd, "yolo_cpp_dll_nogpu.dll")
+    envKeys = list()
+    for k, v in os.environ.items():
+        envKeys.append(k)
+    try:
+        try:
+            tmp = os.environ["FORCE_CPU"].lower()
+            if tmp in ["1", "true", "yes", "on"]:
+                raise ValueError("ForceCPU")
+            else:
+                print("Flag value {} not forcing CPU mode".format(tmp))
+        except KeyError:
+            # We never set the flag
+            if 'CUDA_VISIBLE_DEVICES' in envKeys:
+                if int(os.environ['CUDA_VISIBLE_DEVICES']) < 0:
+                    raise ValueError("ForceCPU")
+            try:
+                global DARKNET_FORCE_CPU
+                if DARKNET_FORCE_CPU:
+                    raise ValueError("ForceCPU")
+            except NameError as cpu_error:
+                print(cpu_error)
+        if not os.path.exists(winGPUdll):
+            raise ValueError("NoDLL")
+        lib = CDLL(winGPUdll, RTLD_GLOBAL)
+    except (KeyError, ValueError):
+        hasGPU = False
+        if os.path.exists(winNoGPUdll):
+            lib = CDLL(winNoGPUdll, RTLD_GLOBAL)
+            print("Notice: CPU-only mode")
+        else:
+            # Try the other way, in case no_gpu was compile but not renamed
+            lib = CDLL(winGPUdll, RTLD_GLOBAL)
+            print("Environment variables indicated a CPU run, but we didn't find {}. Trying a GPU run anyway.".format(winNoGPUdll))
+else:
+    #lib = CDLL("/src/darknet/libdarknet.so", RTLD_GLOBAL)
+    lib = CDLL("/src/darknet/libdarknet.so", RTLD_GLOBAL)
 lib.network_width.argtypes = [c_void_p]
 lib.network_width.restype = c_int
 lib.network_height.argtypes = [c_void_p]
@@ -527,3 +556,85 @@ maxTimeout = 10  # secs
 
 isNeedSaveImage = True
 fullImageDir = "/tmp/.robot-app/full_images"
+
+if __name__ == "__main__":
+    # unconmment next line for an example of batch processing
+    # batch_detection_example()
+    #main()
+    frame=cv2.imread('dog.jpg',0)
+    rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+    im, arr = array_to_image(rgb_frame)
+    configPath = "/src/darknet/cfg/yolov4.cfg"
+    weightPath = "/src/data/yolo/yolov4.weights"
+    metaPath = "/src/darknet/cfg/coco.data"
+    network,class_names,class_colors = load_network(configPath,metaPath,weightPath,1)
+    d1=Darknet( None, None, None, None, None)
+    d1.nnDetect(None,None,frame,None,class_names)
+    pnum = pointer(c_int(0))
+    # predict_image(network, im)
+    detections = get_network_boxes(network, im.w, im.h, thresh,hier_thresh, None, 0, pnum,0)
+    num = pnum[0]
+    foundObject = False
+
+    if (nms):
+        do_nms_sort(detections, num, len(class_names), nms)
+
+    bboxes = []
+    confidences = []
+    objectTypes = []
+    dataURLs = []
+
+    for j in range(num):
+        print("j",j)
+        # print("bbox",dets[j].bbox)
+        print("classes",detections[j].classes)
+        # b = dets[j].bbox
+        # x1 = int(b.x - b.w / 2.)
+        # y1 = int(b.y - b.h / 2.)
+        # x2 = int(b.x + b.w / 2.)
+        # y2 = int(b.y + b.h / 2.)
+        # print("x1:{},y1:{},x2:{},y2:{}".format(x1,y1,x2,y2))
+        # print("height:{}width{}".format(b.h,b.w))
+        for idx,name in enumerate(class_names):
+            objectType=class_names[idx]
+            print(objectType)
+            #objectType = self.meta.names[i].decode() #objectType=class_names
+            #print("i:{}, objectType:{}".format(i,objectType))
+            if detections[j].prob[idx] > 0.5:
+                b = detections[j].bbox
+                print("obj",objectType)
+                print("2.prob",detections[j].prob[idx])
+
+                x1 = int(b.x - b.w / 2.)
+                y1 = int(b.y - b.h / 2.)
+                x2 = int(b.x + b.w / 2.)
+                y2 = int(b.y + b.h / 2.)
+
+                x1 = x1 if x1 >= 0 else 0
+                y1 = y1 if y1 >= 0 else 0
+                x2 = x2 if x2 <= im.w else im.w
+                y2 = y2 if y2 <= im.h else im.h
+
+                frame=cv2.rectangle(frame, (x1, y1), (x2, y2), (0,0,255), 2)
+                frame=cv2.putText(frame, "test", (x1, y1 - 20), cv2.FONT_HERSHEY_SIMPLEX, 1, (255,0,0), 2, cv2.LINE_AA)
+                cv2.waitKey(1000)
+
+                # cropImage = frame[y1:y2, x1:x2]
+                # height, width, channels = cropImage.shape
+                # if width > 0 and height > 0:
+                #     print("if width,height>0")
+                #     retval, jpgImage = cv2.imencode('.jpg', cropImage)
+                #     base64Image = base64.b64encode(jpgImage)
+
+                #     print("Found {} at keyframe {}: object - {}, prob - {}, x - {}, y - {}".format(
+            #  video_serial, keyframe, objectType, dets[j].prob[i], x1, y1))
+
+                #     # benchmark.saveImage(cropImage, self.meta.names[i])  # benchmark
+
+                #     dataURL = "data:image/jpeg;base64," + str(base64Image.decode())
+                #     bbox = [x1, y1, b.w, b.h]
+                #     bboxes.append(bbox)
+                #     confidences.append(dets[j].prob[idx])
+                #     objectTypes.append(objectType)
+                #     dataURLs.append(dataURL)
+                #     foundObject = True
