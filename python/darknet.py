@@ -13,6 +13,7 @@ import base64
 import random
 
 
+
 class BOX(Structure):
     _fields_ = [("x", c_float),
                 ("y", c_float),
@@ -28,7 +29,11 @@ class DETECTION(Structure):
                 ("objectness", c_float),
                 ("sort_class", c_int),
                 ("uc", POINTER(c_float)),
-                ("points", c_int)]
+                ("points", c_int),
+                ("embeddings", POINTER(c_float)),
+                ("embedding_size", c_int),
+                ("sim", c_float),
+                ("track_id", c_int)]
 
 class DETNUMPAIR(Structure):
     _fields_ = [("num", c_int),
@@ -90,7 +95,6 @@ def load_network(config_file, data_file, weights, batch_size=1):
         weights.encode("ascii"), 0, batch_size)
     metadata = load_meta(data_file.encode("ascii"))
     class_names = [metadata.names[i].decode("ascii")for i in range(metadata.classes)]
-    print(class_names)
     colors = class_colors(class_names)
     return network, class_names, colors
 
@@ -127,13 +131,6 @@ def remove_negatives(detections, class_names, num):
     """
     predictions = []
     for j in range(num):
-        print(j)
-        print("detections",detections)
-        print("type detections",type(detections))
-        print(" detections[j]",detections[j])
-        print("type detections[j]",type(detections[j]))
-        print("classes",detections[j].classes)
-        print("type classes",type(detections[j].classes))
         for idx, name in enumerate(class_names):
             if detections[j].prob[idx] > 0:
                 bbox = detections[j].bbox
@@ -255,21 +252,11 @@ class Darknet(Process):
         if self.isDisplay:
             displayFrame = frame.copy()
         print(range(num))
-        #y=(j for j in range(num)  if j==0)
-        #for j in range(num) if j==0:
         for j in range(num):
             print("j",j)
-            # print("bbox",dets[j].bbox)
             print("x")
             print("dets:",dets)
             print("classes",dets[j].classes)
-            # b = dets[j].bbox
-            # x1 = int(b.x - b.w / 2.)
-            # y1 = int(b.y - b.h / 2.)
-            # x2 = int(b.x + b.w / 2.)
-            # y2 = int(b.y + b.h / 2.)
-            # print("x1:{},y1:{},x2:{},y2:{}".format(x1,y1,x2,y2))
-            # print("height:{}width{}".format(b.h,b.w))
             for idx,name in enumerate(class_names):
                 objectType=class_names[idx]
                 print(objectType)

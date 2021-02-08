@@ -18,6 +18,7 @@ import math
 import random
 import os
 
+
 class BOX(Structure):
     _fields_ = [("x", c_float),
                 ("y", c_float),
@@ -33,11 +34,16 @@ class DETECTION(Structure):
                 ("objectness", c_float),
                 ("sort_class", c_int),
                 ("uc", POINTER(c_float)),
-                ("points", c_int)]
+                ("points", c_int),
+                ("embeddings", POINTER(c_float)),
+                ("embedding_size", c_int),
+                ("sim", c_float),
+                ("track_id", c_int)]
 
 class DETNUMPAIR(Structure):
     _fields_ = [("num", c_int),
                 ("dets", POINTER(DETECTION))]
+
 
 class IMAGE(Structure):
     _fields_ = [("w", c_int),
@@ -49,6 +55,7 @@ class IMAGE(Structure):
 class METADATA(Structure):
     _fields_ = [("classes", c_int),
                 ("names", POINTER(c_char_p))]
+
 
 def network_width(net):
     return lib.network_width(net)

@@ -2,11 +2,11 @@ import argparse
 import os
 import glob
 import random
-import darknetnew as darknet
+import darknet
 import time
 import cv2
 import numpy as np
-import darknetnew as darknet
+import darknet
 
 
 def parser():
