@@ -53,8 +53,10 @@ class METADATA(Structure):
 def network_width(net):
     return lib.network_width(net)
 
+
 def network_height(net):
     return lib.network_height(net)
+
 
 def bbox2points(bbox):
     """
@@ -68,6 +70,7 @@ def bbox2points(bbox):
     ymax = int(round(y + (h / 2)))
     return xmin, ymin, xmax, ymax
 
+
 def class_colors(names):
     """
     Create a dict with one random BGR color for each
@@ -77,6 +80,7 @@ def class_colors(names):
         random.randint(0, 255),
         random.randint(0, 255),
         random.randint(0, 255)) for name in names}
+
 
 def load_network(config_file, data_file, weights, batch_size=1):
     """
@@ -97,8 +101,8 @@ def load_network(config_file, data_file, weights, batch_size=1):
     class_names = [metadata.names[i].decode("ascii")for i in range(metadata.classes)]
     print(class_names)
     colors = class_colors(class_names)
-    print("will it break?")
     return network, class_names, colors
+
 
 def print_detections(detections, coordinates=False):
     print("\nObjects:")
@@ -108,6 +112,7 @@ def print_detections(detections, coordinates=False):
             print("{}: {}%    (left_x: {:.0f}   top_y:  {:.0f}   width:   {:.0f}   height:  {:.0f})".format(label, confidence, x, y, w, h))
         else:
             print("{}: {}%".format(label, confidence))
+
 
 def draw_boxes(detections, image, colors):
     import cv2
