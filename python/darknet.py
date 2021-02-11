@@ -186,14 +186,12 @@ class Darknet(Process):
         set_gpu(gpuIndex)
         print("Load darknet worker = {} with gpuIndex = {}".format(
             self.index, gpuIndex))
-        network, class_names ,class_colors= load_network(configPath,metaPath,weightPath,1)
-        self.net=network
-        # self.net = load_net(configPath, weightPath, 0)
-        # self.meta = load_meta(metaPath)
-        # for i in range(self.meta.classes):
-        #     self.meta.names[i] = self.meta.names[i].decode().replace(
-        #         ' ', '_').encode()
-        #     print("Classes : {}".format(self.meta.names[i]))
+        self.net = load_net(configPath, weightPath, 0)
+        self.meta = load_meta(metaPath)
+        for i in range(self.meta.classes):
+            self.meta.names[i] = self.meta.names[i].decode().replace(
+                ' ', '_').encode()
+            print("Classes : {}".format(self.meta.names[i]))
 
         print("darknet {} initialized".format(self.index))
 
@@ -203,8 +201,7 @@ class Darknet(Process):
             try:
                 video_serial, keyframe, frame, time = self.detectQueue.get(
                     timeout=0.1)
-                print("video_serial",video_serial)
-                self.nnDetect(video_serial, keyframe, frame, time,class_names)
+                self.nnDetect(video_serial, keyframe, frame, time)
             except Exception:
                 pass
             sys.stdout.flush()
@@ -218,7 +215,7 @@ class Darknet(Process):
         self.detectCount = 0
 
 
-    def nnDetect(self, video_serial, keyframe, frame, time,class_names):
+    def nnDetect(self, video_serial, keyframe, frame, time):
         self.detectCount += 1
         print("darknet {} nnDetect {}, keyframe {}".format(
             self.index, video_serial, keyframe))
@@ -242,7 +239,7 @@ class Darknet(Process):
         # detector.sendLogMessage(keyframe, "feed_network")
 
         if (nms):
-            do_nms_sort(dets, num, len(class_names), nms)
+            do_nms_obj(dets, num, self.meta.classes, nms)
 
         bboxes = []
         confidences = []
@@ -503,9 +500,9 @@ network_predict_batch.argtypes = [c_void_p, IMAGE, c_int, c_int, c_int,
 network_predict_batch.restype = POINTER(DETNUMPAIR)
 
 
-configPath = "/src/darknet/cfg/yolov4.cfg"
-weightPath = "/src/data/yolo/yolov4.weights"
-metaPath = "/src/darknet/cfg/coco.data"
+configPath = "/src/darknet/cfg/grandyolo.cfg"
+weightPath = "/src/darknet/cfg/grandyolo_best.weights"
+metaPath = "/src/darknet/cfg/grandyolo.data"
 thresh = .6
 hier_thresh = .5
 nms = .45
