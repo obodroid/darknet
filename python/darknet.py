@@ -186,22 +186,23 @@ class Darknet(Process):
         set_gpu(gpuIndex)
         print("Load darknet worker = {} with gpuIndex = {}".format(
             self.index, gpuIndex))
-        self.net = load_net(configPath, weightPath, 0)
-        self.meta = load_meta(metaPath)
-        for i in range(self.meta.classes):
-            self.meta.names[i] = self.meta.names[i].decode().replace(
-                ' ', '_').encode()
-            print("Classes : {}".format(self.meta.names[i]))
+        self.net, class_names ,class_colors= load_network(configPath,metaPath,weightPath,1)
+        #self.net = load_net(configPath, weightPath, 0)
+        self.meta = load_meta(metaPath1)
+        # for i in range(self.meta.classes):
+        #     self.meta.names[i] = self.meta.names[i].decode().replace(
+        #         ' ', '_').encode()
+        #     print("Classes : {}".format(self.meta.names[i]))
 
         print("darknet {} initialized".format(self.index))
 
         self.monitorDetectRate()
-
-        while not self.isStop.value:
+      weightPath  while not self.isStop.value:
             try:
                 video_serial, keyframe, frame, time = self.detectQueue.get(
                     timeout=0.1)
-                self.nnDetect(video_serial, keyframe, frame, time)
+                print("start nn")
+                self.nnDetect(video_serial, keyframe, frame, time,class_names)
             except Exception:
                 pass
             sys.stdout.flush()
@@ -215,7 +216,7 @@ class Darknet(Process):
         self.detectCount = 0
 
 
-    def nnDetect(self, video_serial, keyframe, frame, time):
+    def nnDetect(self, video_serial, keyframe, frame, time,class_names):
         self.detectCount += 1
         print("darknet {} nnDetect {}, keyframe {}".format(
             self.index, video_serial, keyframe))
@@ -226,7 +227,6 @@ class Darknet(Process):
 
         rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         im, arr = array_to_image(rgb_frame)
-
         pnum = pointer(c_int(0))
         predict_image(self.net, im)
         dets = get_network_boxes(self.net, im.w, im.h, thresh,
@@ -237,10 +237,8 @@ class Darknet(Process):
         filepath = '{}/{}'.format(fullImageDir, filename)
 
         # detector.sendLogMessage(keyframe, "feed_network")
-
         if (nms):
-            do_nms_obj(dets, num, self.meta.classes, nms)
-
+            do_nms_sort(dets, num, len(class_names), nms)
         bboxes = []
         confidences = []
         objectTypes = []
@@ -248,21 +246,13 @@ class Darknet(Process):
 
         if self.isDisplay:
             displayFrame = frame.copy()
-        print(range(num))
         for j in range(num):
-            print("j",j)
-            print("x")
-            print("dets:",dets)
-            print("classes",dets[j].classes)
-            for idx,name in enumerate(class_names):
-                objectType=class_names[idx]
-                print(objectType)
-                #objectType = self.meta.names[i].decode() #objectType=class_names
+            for i in range(self.meta.classes):
+                #objectType=class_names[i]
+                objectType = self.meta.names[i].decode() #objectType=class_names
                 #print("i:{}, objectType:{}".format(i,objectType))
-                if dets[j].prob[idx] > self.threshold:
+                if dets[j].prob[i] > self.threshold:
                     b = dets[j].bbox
-                    print("obj",objectType)
-                    print("2.prob",dets[j].prob[i])
 
                     x1 = int(b.x - b.w / 2.)
                     y1 = int(b.y - b.h / 2.)
@@ -276,13 +266,12 @@ class Darknet(Process):
 
                     if self.isDisplay:
                         cv2.rectangle(displayFrame, (x1, y1), (x2, y2), classes_box_colors[1], 2)
-                        cv2.putText(displayFrame, class_names, (x1, y1 - 20), 1, 1, classes_font_colors[0], 2, cv2.LINE_AA)
-                        cv2.waitKey(1000)
+                        cv2.putText(displayFrame, objectType, (x1, y1 - 20), 1, 1, classes_font_colors[0], 2, cv2.LINE_AA)
+                        cv2.waitKey(1)
 
                     cropImage = frame[y1:y2, x1:x2]
                     height, width, channels = cropImage.shape
                     if width > 0 and height > 0:
-                        print("if width,height>0")
                         retval, jpgImage = cv2.imencode('.jpg', cropImage)
                         base64Image = base64.b64encode(jpgImage)
 
@@ -294,12 +283,10 @@ class Darknet(Process):
                         dataURL = "data:image/jpeg;base64," + str(base64Image.decode())
                         bbox = [x1, y1, b.w, b.h]
                         bboxes.append(bbox)
-                        confidences.append(dets[j].prob[idx])
+                        confidences.append(dets[j].prob[i])
                         objectTypes.append(objectType)
                         dataURLs.append(dataURL)
                         foundObject = True
-            print("end in range num")
-        print("start detectedObject for")
         detectedObjects = []
         for bbox, confidence, objectType, dataURL in zip(bboxes, confidences, objectTypes, dataURLs):
             detectedObject = {
@@ -330,8 +317,8 @@ class Darknet(Process):
             "detect_time": datetime.now().isoformat(),
         }
 
-        x=self.resultQueue.put([robotId, videoId, msg, frame, bboxes, confidences, objectTypes])
-        print("put",x)
+        self.resultQueue.put([robotId, videoId, msg, frame, bboxes, confidences, objectTypes])
+        print("send resultQueue")
         if self.isDisplay:
             print("Darknet {} show frame".format(video_serial))
             title = "detect : {}".format(video_serial)
@@ -500,9 +487,10 @@ network_predict_batch.argtypes = [c_void_p, IMAGE, c_int, c_int, c_int,
 network_predict_batch.restype = POINTER(DETNUMPAIR)
 
 
-configPath = "/src/darknet/cfg/grandyolo.cfg"
-weightPath = "/src/darknet/cfg/grandyolo_best.weights"
-metaPath = "/src/darknet/cfg/grandyolo.data"
+configPath = "/src/darknet/cfg/yolov4.cfg"
+weightPath = "/src/darknet/cfg/yolov4.weights"
+metaPath = "/src/darknet/cfg/coco.data"
+metaPath1 = b'/src/darknet/cfg/coco.data'
 thresh = .6
 hier_thresh = .5
 nms = .45

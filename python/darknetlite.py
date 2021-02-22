@@ -1,22 +1,16 @@
-# from ctypes import *
-# import cv2
-# import numpy as np
-# import threading
-# from multiprocessing import Process, Value
-# from threading import Timer
-# import setproctitle
-# import os
-# import sys
-# from datetime import datetime
-# import time
-# import base64
-# import random
-# import math
-
 from ctypes import *
-import math
-import random
+import cv2
+import numpy as np
+import threading
+from multiprocessing import Process, Value
+from threading import Timer
+import setproctitle
 import os
+import sys
+from datetime import datetime
+import time
+import base64
+import random
 
 
 class BOX(Structure):
@@ -106,8 +100,8 @@ def load_network(config_file, data_file, weights, batch_size=1):
         weights.encode("ascii"), 0, batch_size)
     metadata = load_meta(data_file.encode("ascii"))
     class_names = [metadata.names[i].decode("ascii") for i in range(metadata.classes)]
-    colors = class_colors(class_names)
-    return network, class_names, colors
+    #colors = class_colors(class_names)
+    return network, class_names, #colors
 
 
 def print_detections(detections, coordinates=False):
@@ -153,275 +147,211 @@ def remove_negatives(detections, class_names, num):
                 x1,y1,x2,y2=bbox2points(bbox)
                 predictions.append((name, detections[j].prob[idx], (bbox)))
                 print("predictions",predictions)
-    return predictions ,x1,y1,x2,y2
+    return predictions #,x1,y1,x2,y2
 
-def nnDetect(self, video_serial, keyframe, frame, time,class_names,network,image):
+class Darknet(Process):
+    def __init__(self, index, numGpus, threshold, detectQueue, resultQueue):
+        Process.__init__(self)
+        self.daemon = True
+        self.net = None
+        self.meta = None
+        self.index = index
+        self.numGpus = numGpus
+        self.threshold = threshold
+        self.detectCount = 0
+        self.detectRate = Value('i', -1)
+        self.detectQueue = detectQueue
+        self.resultQueue = resultQueue
+        self.isStop = Value(c_bool, False)
+        self.isDisplay = True
+
+
+    def run(self):
+        setproctitle.setproctitle("Darknet {}".format(self.index))
+        gpuIndex = (self.index % self.numGpus) + \
+            ((int(os.environ['CONTAINER_INDEX']) - 1) * self.numGpus) + 1 if 'CONTAINER_INDEX' in os.environ else 0
+        set_gpu(gpuIndex)
+        print("Load darknet worker = {} with gpuIndex = {}".format(
+            self.index, gpuIndex))
+        self.net,self.class_names,= load_network(configPath,metaPath,weightPath,1)
+        print("darknet {} initialized".format(self.index))
+        print("test1")
+        self.monitorDetectRate()
+        # print(self.isStop)
+        # video_serial, keyframe, frame, time = self.detectQueue.get(
+        #             timeout=0.1)
+        # print("test2")
+        # self.nnDetect(video_serial, keyframe, frame, time)
+        while not self.isStop.value:
+            try:
+                print("test2.1")
+                video_serial, keyframe, frame, time = self.detectQueue.get(
+                    timeout=0.1)
+                print("test2")
+                self.nnDetect(video_serial, keyframe, frame, time)
+            except Exception:
+                pass
+            sys.stdout.flush()
+
+
+    def monitorDetectRate(self):
+        t = threading.Timer(1.0, self.monitorDetectRate)
+        t.setDaemon(True)
+        t.start()
+        self.detectRate.value = self.detectCount
+        self.detectCount = 0
+
+    def nnDetect(self, video_serial, keyframe, frame, time):
         #self.detectCount += 1
+        print("test")
         # print("darknet {} nnDetect {}, keyframe {}".format(
         #     self.index, video_serial, keyframe))
         # robotId, videoId = video_serial.split('-')
         # red for palmup --> stop, green for thumbsup --> go
-    classes_box_colors = [(0, 0, 255), (0, 255, 0)]
-    classes_font_colors = [(255, 255, 0), (0, 255, 255)]
-    foundObject = False
+        classes_box_colors = [(0, 0, 255), (0, 255, 0)]
+        classes_font_colors = [(255, 255, 0), (0, 255, 255)]
+        foundObject = False
         # filename = '{}_{}.jpg'.format(video_serial, keyframe)
         # filepath = '{}/{}'.format(fullImageDir, filename)
-    bboxes = []
-    confidences = []
-    objectTypes = []
-    dataURLs = []
+        bboxes = []
+        confidences = []
+        objectTypes = []
+        dataURLs = []
         #for test image detect only
         #frame=cv2.imread
         # if True:
         #     displayFrame = image.copy()
         
-    pnum = pointer(c_int(0))
-    predict_image(network, image)
-    detections = get_network_boxes(network, image.w, image.h,
+        pnum = pointer(c_int(0))
+        predict_image(network, image)
+        detections = get_network_boxes(network, image.w, image.h,
                                    thresh, hier_thresh, None, 0, pnum, 0)
-    num = pnum[0]
-    if nms:
-        do_nms_sort(detections, num, len(class_names), nms)
+        num = pnum[0]
+        if nms:
+            do_nms_sort(detections, num, len(class_names), nms)
 
-    print(range(num))
+        print(range(num))
         
-    predictions,x1,y1,x2,y2= remove_negatives(detections, class_names, num)
-    predictions = decode_detection(predictions)
-    free_detections(detections, num)
+        predictions= remove_negatives(detections, class_names, num)
+        predictions = decode_detection(predictions)
 
-        
-    return sorted(predictions, key=lambda x: x[1])
+        # if True:
+        #     cv2.rectangle(displayFrame, (x1, y1), (x2, y2), classes_box_colors[1], 2)
+        #     cv2.putText(displayFrame, class_names, (x1, y1 - 20), 1, 1, classes_font_colors[0], 2, cv2.LINE_AA)
+        #     cv2.waitKey(1)
 
-def detect_image(network, class_names, image, thresh=.5, hier_thresh=.5, nms=.45):
-        # """
-        # Returns a list with highest confidence class and their bbox
-        # """
-    pnum = pointer(c_int(0))
-    predict_image(network, image)
-    detections = get_network_boxes(network, image.w, image.h,
-                                   thresh, hier_thresh, None, 0, pnum, 0)
-    num = pnum[0]
-    if nms:
-        do_nms_sort(detections, num, len(class_names), nms)
-    predictions = remove_negatives(detections, class_names, num)
-    predictions = decode_detection(predictions)
-    free_detections(detections, num)
-    return sorted(predictions, key=lambda x: x[1])
+        #     cropImage = frame[y1:y2, x1:x2]
+        #     height, width, channels = cropImage.shape
+        #     if width > 0 and height > 0:
+        #         print("if width,height>0")
+        #         retval, jpgImage = cv2.imencode('.jpg', cropImage)
+        #         base64Image = base64.b64encode(jpgImage)
+        #         print("Found {} at keyframe {}: object - {}, prob - {}, x - {}, y - {}".format(
+        #          video_serial, keyframe, objectType, detections[j].prob[i], x1, y1))
+        #         dataURL = "data:image/jpeg;base64," + str(base64Image.decode())
+        #         bbox = [x1, y1, b.w, b.h]
+        #         bboxes.append(bbox)
+        #         confidences.append(detections[j].prob[idx])
+        #         objectTypes.append(objectType)
+        #         dataURLs.append(dataURL)
+        #         foundObject = True
+        # detectedObjects = []
+        # for bbox, confidence, objectType, dataURL in zip(bboxes, confidences, objectTypes, dataURLs):
+        #     detectedObject = {
+        #         "bbox": {
+        #             "x": bbox[0],
+        #             "y": bbox[1],
+        #             "w": bbox[2],
+        #             "h": bbox[3],
+        #         },
+        #         "confidence": confidence,
+        #         "objectType": objectType,
+        #         "dataURL": dataURL,
+        #     }
+        #     detectedObjects.append(detectedObject)
+        # # print("detectedObjects",detectedObjects)
+        # msg = {
+        #     "type": "DETECTED",
+        #     "robotId": robotId,
+        #     "videoId": videoId,
+        #     "keyframe": keyframe,
+        #     "frame": {
+        #         "width": im.w,
+        #         "height": im.h,
+        #     },
+        #     "detectedObjects": detectedObjects,
+        #     "frame_time": time.isoformat(),
+        #     "detect_time": datetime.now().isoformat(),
+        # }
 
-# class Darknet(Process):
-#     def __init__(self, index, numGpus, threshold, detectQueue, resultQueue):
-#         Process.__init__(self)
-#         self.daemon = True
-#         self.net = None
-#         self.meta = None
-#         self.index = index
-#         self.numGpus = numGpus
-#         self.threshold = threshold
-#         self.detectCount = 0
-#         self.detectRate = Value('i', -1)
-#         self.detectQueue = detectQueue
-#         self.resultQueue = resultQueue
-#         self.isStop = Value(c_bool, False)
-#         self.isDisplay = True
+        # self.resultQueue.put([robotId, videoId, msg, frame, bboxes, confidences, objectTypes])
+        # if self.isDisplay:
+        #     print("Darknet {} show frame".format(video_serial))
+        #     title = "detect : {}".format(video_serial)
+        #     cv2.putText(displayFrame, "keyframe {}".format(keyframe),(30, 70), 0, 5e-3 * 100, (0,0,255), 2)
+        #     cv2.imshow(title, displayFrame)
+        #     cv2.waitKey(1)
 
+        free_detections(detections, num)
 
-#     def run(self):
-#         setproctitle.setproctitle("Darknet {}".format(self.index))
-#         gpuIndex = (self.index % self.numGpus) + \
-#             ((int(os.environ['CONTAINER_INDEX']) - 1) * self.numGpus) + 1 if 'CONTAINER_INDEX' in os.environ else 0
-#         set_gpu(gpuIndex)
-#         print("Load darknet worker = {} with gpuIndex = {}".format(
-#             self.index, gpuIndex))
-#         self.net,class_names,class_colors = load_network(configPath,metaPath,weightPath,1)
-#         print("1")
-#         print("darknet {} initialized".format(self.index))
+        # if isNeedSaveImage and foundObject:
+        #     t = threading.Thread(target=saveImage, args=(filepath, frame))
+        #     t.start()
+        return sorted(predictions, key=lambda x: x[1])
 
-#         self.monitorDetectRate()
-
-#         while not self.isStop.value:
-#             try:
-#                 video_serial, keyframe, frame, time = self.detectQueue.get(
-#                     timeout=0.1)
-#                 self.nnDetect(video_serial, keyframe, frame, time,class_names)
-#             except Exception:
-#                 pass
-#             sys.stdout.flush()
-
-
-#     def monitorDetectRate(self):
-#         t = threading.Timer(1.0, self.monitorDetectRate)
-#         t.setDaemon(True)
-#         t.start()
-#         self.detectRate.value = self.detectCount
-#         self.detectCount = 0
-
-#     def detect_image(network, class_names, image, thresh=.5, hier_thresh=.5, nms=.45):
-#         # """
-#         # Returns a list with highest confidence class and their bbox
-#         # """
-#         pnum = pointer(c_int(0))
-#         predict_image(network, image)
-#         detections = get_network_boxes(network, image.w, image.h,
-#                                    thresh, hier_thresh, None, 0, pnum, 0)
-#         num = pnum[0]
-#         if nms:
-#             do_nms_sort(detections, num, len(class_names), nms)
-#         predictions = remove_negatives(detections, class_names, num)
-#         predictions = decode_detection(predictions)
-#         free_detections(detections, num)
-#         return sorted(predictions, key=lambda x: x[1])
-
-#     def nnDetect(self, video_serial, keyframe, frame, time,class_names,network,image):
-#         #self.detectCount += 1
-#         print("test")
-#         # print("darknet {} nnDetect {}, keyframe {}".format(
-#         #     self.index, video_serial, keyframe))
-#         # robotId, videoId = video_serial.split('-')
-#         # red for palmup --> stop, green for thumbsup --> go
-#         classes_box_colors = [(0, 0, 255), (0, 255, 0)]
-#         classes_font_colors = [(255, 255, 0), (0, 255, 255)]
-#         foundObject = False
-#         # filename = '{}_{}.jpg'.format(video_serial, keyframe)
-#         # filepath = '{}/{}'.format(fullImageDir, filename)
-#         bboxes = []
-#         confidences = []
-#         objectTypes = []
-#         dataURLs = []
-#         #for test image detect only
-#         #frame=cv2.imread
-#         # if True:
-#         #     displayFrame = image.copy()
-        
-#         pnum = pointer(c_int(0))
-#         predict_image(network, image)
-#         detections = get_network_boxes(network, image.w, image.h,
-#                                    thresh, hier_thresh, None, 0, pnum, 0)
-#         num = pnum[0]
-#         if nms:
-#             do_nms_sort(detections, num, len(class_names), nms)
-
-#         print(range(num))
-        
-#         predictions,x1,y1,x2,y2= remove_negatives(detections, class_names, num)
-#         predictions = decode_detection(predictions)
-
-#         # if True:
-#         #     cv2.rectangle(displayFrame, (x1, y1), (x2, y2), classes_box_colors[1], 2)
-#         #     cv2.putText(displayFrame, class_names, (x1, y1 - 20), 1, 1, classes_font_colors[0], 2, cv2.LINE_AA)
-#         #     cv2.waitKey(1)
-
-#         #     cropImage = frame[y1:y2, x1:x2]
-#         #     height, width, channels = cropImage.shape
-#         #     if width > 0 and height > 0:
-#         #         print("if width,height>0")
-#         #         retval, jpgImage = cv2.imencode('.jpg', cropImage)
-#         #         base64Image = base64.b64encode(jpgImage)
-#         #         print("Found {} at keyframe {}: object - {}, prob - {}, x - {}, y - {}".format(
-#         #          video_serial, keyframe, objectType, detections[j].prob[i], x1, y1))
-#         #         dataURL = "data:image/jpeg;base64," + str(base64Image.decode())
-#         #         bbox = [x1, y1, b.w, b.h]
-#         #         bboxes.append(bbox)
-#         #         confidences.append(detections[j].prob[idx])
-#         #         objectTypes.append(objectType)
-#         #         dataURLs.append(dataURL)
-#         #         foundObject = True
-#         # detectedObjects = []
-#         # for bbox, confidence, objectType, dataURL in zip(bboxes, confidences, objectTypes, dataURLs):
-#         #     detectedObject = {
-#         #         "bbox": {
-#         #             "x": bbox[0],
-#         #             "y": bbox[1],
-#         #             "w": bbox[2],
-#         #             "h": bbox[3],
-#         #         },
-#         #         "confidence": confidence,
-#         #         "objectType": objectType,
-#         #         "dataURL": dataURL,
-#         #     }
-#         #     detectedObjects.append(detectedObject)
-#         # # print("detectedObjects",detectedObjects)
-#         # msg = {
-#         #     "type": "DETECTED",
-#         #     "robotId": robotId,
-#         #     "videoId": videoId,
-#         #     "keyframe": keyframe,
-#         #     "frame": {
-#         #         "width": im.w,
-#         #         "height": im.h,
-#         #     },
-#         #     "detectedObjects": detectedObjects,
-#         #     "frame_time": time.isoformat(),
-#         #     "detect_time": datetime.now().isoformat(),
-#         # }
-
-#         # self.resultQueue.put([robotId, videoId, msg, frame, bboxes, confidences, objectTypes])
-#         # if self.isDisplay:
-#         #     print("Darknet {} show frame".format(video_serial))
-#         #     title = "detect : {}".format(video_serial)
-#         #     cv2.putText(displayFrame, "keyframe {}".format(keyframe),(30, 70), 0, 5e-3 * 100, (0,0,255), 2)
-#         #     cv2.imshow(title, displayFrame)
-#         #     cv2.waitKey(1)
-
-#         free_detections(detections, num)
-
-#         # if isNeedSaveImage and foundObject:
-#         #     t = threading.Thread(target=saveImage, args=(filepath, frame))
-#         #     t.start()
-#         return sorted(predictions, key=lambda x: x[1])
-
-# def array_to_image(arr):
-#     # need to return old values to avoid python freeing memory
-#     arr = arr.transpose(2, 0, 1)
-#     c, h, w = arr.shape[0:3]
-#     arr = np.ascontiguousarray(arr.flat, dtype=np.float32) / 255.0
-#     data = arr.ctypes.data_as(POINTER(c_float))
-#     im = IMAGE(w, h, c, data)
-#     return im, arr
+def array_to_image(arr):
+    # need to return old values to avoid python freeing memory
+    arr = arr.transpose(2, 0, 1)
+    c, h, w = arr.shape[0:3]
+    arr = np.ascontiguousarray(arr.flat, dtype=np.float32) / 255.0
+    data = arr.ctypes.data_as(POINTER(c_float))
+    im = IMAGE(w, h, c, data)
+    return im, arr
 
 
-# def saveImage(filepath, frame):
-#     cv2.imwrite(filepath, frame)
+def saveImage(filepath, frame):
+    cv2.imwrite(filepath, frame)
 
 
-# def initSaveImage():
-#     if isNeedSaveImage:
-#         if not os.path.exists(fullImageDir):
-#             try:
-#                 os.makedirs(fullImageDir)
-#             except OSError as exc:  # Guard against race condition
-#                 print("OSError:cannot make directory.")
-#         else:
-#             fileList = os.listdir(fullImageDir)
-#             for fileName in fileList:
-#                 os.remove(fullImageDir + "/" + fileName)
+def initSaveImage():
+    if isNeedSaveImage:
+        if not os.path.exists(fullImageDir):
+            try:
+                os.makedirs(fullImageDir)
+            except OSError as exc:  # Guard against race condition
+                print("OSError:cannot make directory.")
+        else:
+            fileList = os.listdir(fullImageDir)
+            for fileName in fileList:
+                os.remove(fullImageDir + "/" + fileName)
 
 
-# darknetWorkers = []
+darknetWorkers = []
 
 
-# def initDarknetWorkers(numWorkers, numGpus, threshold, detectQueue, resultQueue):
-#     print("darknet numWorkers : {}, numGpus : {}".format(numWorkers, numGpus))
+def initDarknetWorkers(numWorkers, numGpus, threshold, detectQueue, resultQueue):
+    print("darknet numWorkers : {}, numGpus : {}".format(numWorkers, numGpus))
 
-#     for i in range(numWorkers):
-#         worker = Darknet(i, numGpus, threshold, detectQueue, resultQueue)
-#         darknetWorkers.append(worker)
-#         worker.start()
-#         print("darknet worker {} started".format(i))
-
-
-# def deinitDarknetWorkers():
-#     for worker in darknetWorkers:
-#         print("darknet worker {} stopped".format(worker.index))
-#         worker.isStop.value = True
-#     darknetWorkers.clear()
+    for i in range(numWorkers):
+        worker = Darknet(i, numGpus, threshold, detectQueue, resultQueue)
+        darknetWorkers.append(worker)
+        worker.start()
+        print("darknet worker {} started".format(i)) 
 
 
-# def getDetectRates():
-#     detectRates = []
-#     for i in range(len(darknetWorkers)):
-#         detectRates.append(darknetWorkers[i].detectRate.value)
+def deinitDarknetWorkers():
+    for worker in darknetWorkers:
+        print("darknet worker {} stopped".format(worker.index))
+        worker.isStop.value = True
+    darknetWorkers.clear()
 
-#     return detectRates
+
+def getDetectRates():
+    detectRates = []
+    for i in range(len(darknetWorkers)):
+        detectRates.append(darknetWorkers[i].detectRate.value)
+
+    return detectRates
 
 
 
@@ -562,3 +492,15 @@ network_predict_batch = lib.network_predict_batch
 network_predict_batch.argtypes = [c_void_p, IMAGE, c_int, c_int, c_int,
                                    c_float, c_float, POINTER(c_int), c_int, c_int]
 network_predict_batch.restype = POINTER(DETNUMPAIR)
+
+configPath = "/src/darknet/cfg/grandyolo.cfg"
+weightPath = "/src/darknet/cfg/grandyolo_best.weights"
+metaPath = "/src/darknet/cfg/grandyolo.data"
+thresh = .6
+hier_thresh = .5
+nms = .45
+bufferSize = 3
+maxTimeout = 10  # secs
+
+isNeedSaveImage = True
+fullImageDir = "/tmp/.robot-app/full_images"

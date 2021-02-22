@@ -2,11 +2,11 @@ import argparse
 import os
 import glob
 import random
-import darknetlite as darknet
+import darknetnew as darknet
 import time
 import cv2
 import numpy as np
-import darknetlite as darknet
+import darknetnew as darknet
 
 def parser():
     parser = argparse.ArgumentParser(description="YOLO Object Detection")
@@ -93,8 +93,8 @@ def image_detection(image_path, network, class_names, class_colors, thresh):
                                interpolation=cv2.INTER_LINEAR) 
     darknet.copy_image_from_bytes(darknet_image, image_resized.tobytes())
     print("it comehere")
-    detections = darknet.detect_image(network, class_names, darknet_image, thresh=thresh)
-    #detections = darknet.nnDetect(None, None, darknet_image, None,None,class_names,network,darknet_image)
+    #detections = darknet.detect_image(network, class_names, darknet_image, thresh=thresh)
+    detections = darknet.Darknet.nnDetect(None, None, darknet_image, None,None)
     print("maybe2")
     darknet.free_image(darknet_image)
     print("maybe3")

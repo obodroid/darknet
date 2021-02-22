@@ -222,22 +222,22 @@ class Darknet(Process):
 
     def nnDetect(self, video_serial, keyframe, frame, time,class_names):
         self.detectCount += 1
-        # print("darknet {} nnDetect {}, keyframe {}".format(
-        #     self.index, video_serial, keyframe))
-        # robotId, videoId = video_serial.split('-')
+        print("darknet {} nnDetect {}, keyframe {}".format(
+            self.index, video_serial, keyframe))
+        robotId, videoId = video_serial.split('-')
         # red for palmup --> stop, green for thumbsup --> go
         classes_box_colors = [(0, 0, 255), (0, 255, 0)]
         classes_font_colors = [(255, 255, 0), (0, 255, 255)]
         foundObject = False
-        # filename = '{}_{}.jpg'.format(video_serial, keyframe)
-        # filepath = '{}/{}'.format(fullImageDir, filename)
+        filename = '{}_{}.jpg'.format(video_serial, keyframe)
+        filepath = '{}/{}'.format(fullImageDir, filename)
         bboxes = []
         confidences = []
         objectTypes = []
         dataURLs = []
         if self.isDisplay:
             displayFrame = frame.copy()
-        
+        print("fail")
         detections=detect_image(self.net,class_names,frame,thresh,hier_thresh,nms)
 
         print(range(num))
@@ -556,85 +556,3 @@ maxTimeout = 10  # secs
 
 isNeedSaveImage = True
 fullImageDir = "/tmp/.robot-app/full_images"
-
-if __name__ == "__main__":
-    # unconmment next line for an example of batch processing
-    # batch_detection_example()
-    #main()
-    frame=cv2.imread('dog.jpg',0)
-    rgb_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-    im, arr = array_to_image(rgb_frame)
-    configPath = "/src/darknet/cfg/yolov4.cfg"
-    weightPath = "/src/data/yolo/yolov4.weights"
-    metaPath = "/src/darknet/cfg/coco.data"
-    network,class_names,class_colors = load_network(configPath,metaPath,weightPath,1)
-    d1=Darknet( None, None, None, None, None)
-    d1.nnDetect(None,None,frame,None,class_names)
-    pnum = pointer(c_int(0))
-    # predict_image(network, im)
-    detections = get_network_boxes(network, im.w, im.h, thresh,hier_thresh, None, 0, pnum,0)
-    num = pnum[0]
-    foundObject = False
-
-    if (nms):
-        do_nms_sort(detections, num, len(class_names), nms)
-
-    bboxes = []
-    confidences = []
-    objectTypes = []
-    dataURLs = []
-
-    for j in range(num):
-        print("j",j)
-        # print("bbox",dets[j].bbox)
-        print("classes",detections[j].classes)
-        # b = dets[j].bbox
-        # x1 = int(b.x - b.w / 2.)
-        # y1 = int(b.y - b.h / 2.)
-        # x2 = int(b.x + b.w / 2.)
-        # y2 = int(b.y + b.h / 2.)
-        # print("x1:{},y1:{},x2:{},y2:{}".format(x1,y1,x2,y2))
-        # print("height:{}width{}".format(b.h,b.w))
-        for idx,name in enumerate(class_names):
-            objectType=class_names[idx]
-            print(objectType)
-            #objectType = self.meta.names[i].decode() #objectType=class_names
-            #print("i:{}, objectType:{}".format(i,objectType))
-            if detections[j].prob[idx] > 0.5:
-                b = detections[j].bbox
-                print("obj",objectType)
-                print("2.prob",detections[j].prob[idx])
-
-                x1 = int(b.x - b.w / 2.)
-                y1 = int(b.y - b.h / 2.)
-                x2 = int(b.x + b.w / 2.)
-                y2 = int(b.y + b.h / 2.)
-
-                x1 = x1 if x1 >= 0 else 0
-                y1 = y1 if y1 >= 0 else 0
-                x2 = x2 if x2 <= im.w else im.w
-                y2 = y2 if y2 <= im.h else im.h
-
-                frame=cv2.rectangle(frame, (x1, y1), (x2, y2), (0,0,255), 2)
-                frame=cv2.putText(frame, "test", (x1, y1 - 20), cv2.FONT_HERSHEY_SIMPLEX, 1, (255,0,0), 2, cv2.LINE_AA)
-                cv2.waitKey(1000)
-
-                # cropImage = frame[y1:y2, x1:x2]
-                # height, width, channels = cropImage.shape
-                # if width > 0 and height > 0:
-                #     print("if width,height>0")
-                #     retval, jpgImage = cv2.imencode('.jpg', cropImage)
-                #     base64Image = base64.b64encode(jpgImage)
-
-                #     print("Found {} at keyframe {}: object - {}, prob - {}, x - {}, y - {}".format(
-            #  video_serial, keyframe, objectType, dets[j].prob[i], x1, y1))
-
-                #     # benchmark.saveImage(cropImage, self.meta.names[i])  # benchmark
-
-                #     dataURL = "data:image/jpeg;base64," + str(base64Image.decode())
-                #     bbox = [x1, y1, b.w, b.h]
-                #     bboxes.append(bbox)
-                #     confidences.append(dets[j].prob[idx])
-                #     objectTypes.append(objectType)
-                #     dataURLs.append(dataURL)
-                #     foundObject = True
