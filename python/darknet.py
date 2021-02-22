@@ -197,7 +197,7 @@ class Darknet(Process):
         print("darknet {} initialized".format(self.index))
 
         self.monitorDetectRate()
-      weightPath  while not self.isStop.value:
+        while not self.isStop.value:
             try:
                 video_serial, keyframe, frame, time = self.detectQueue.get(
                     timeout=0.1)
