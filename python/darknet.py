@@ -56,27 +56,6 @@ def network_width(net):
 def network_height(net):
     return lib.network_height(net)
 
-def bbox2points(bbox):
-    """
-    From bounding box yolo format
-    to corner points cv2 rectangle
-    """
-    x, y, w, h = bbox
-    xmin = int(round(x - (w / 2)))
-    xmax = int(round(x + (w / 2)))
-    ymin = int(round(y - (h / 2)))
-    ymax = int(round(y + (h / 2)))
-    return xmin, ymin, xmax, ymax
-
-def class_colors(names):
-    """
-    Create a dict with one random BGR color for each
-    class name
-    """
-    return {name: (
-        random.randint(0, 255),
-        random.randint(0, 255),
-        random.randint(0, 255)) for name in names}
 
 def load_network(config_file, data_file, weights, batch_size=1):
     """
@@ -95,72 +74,7 @@ def load_network(config_file, data_file, weights, batch_size=1):
         weights.encode("ascii"), 0, batch_size)
     metadata = load_meta(data_file.encode("ascii"))
     class_names = [metadata.names[i].decode("ascii")for i in range(metadata.classes)]
-    colors = class_colors(class_names)
-    return network, class_names, colors
-
-def print_detections(detections, coordinates=False):
-    print("\nObjects:")
-    for label, confidence, bbox in detections:
-        x, y, w, h = bbox
-        if coordinates:
-            print("{}: {}%    (left_x: {:.0f}   top_y:  {:.0f}   width:   {:.0f}   height:  {:.0f})".format(label, confidence, x, y, w, h))
-        else:
-            print("{}: {}%".format(label, confidence))
-
-def draw_boxes(detections, image, colors):
-    import cv2
-    for label, confidence, bbox in detections:
-        left, top, right, bottom = bbox2points(bbox)
-        cv2.rectangle(image, (left, top), (right, bottom), colors[label], 1)
-        cv2.putText(image, "{} [{:.2f}]".format(label, float(confidence)),
-                    (left, top - 5), cv2.FONT_HERSHEY_SIMPLEX, 0.5,
-                    colors[label], 2)
-    return image
-
-def decode_detection(detections):
-    decoded = []
-    for label, confidence, bbox in detections:
-        confidence = str(round(confidence * 100, 2))
-        decoded.append((str(label), confidence, bbox))
-    return decoded
-
-
-def remove_negatives(detections, class_names, num):
-    """
-    Remove all classes with 0% confidence within the detection
-    """
-    predictions = []
-    for j in range(num):
-        for idx, name in enumerate(class_names):
-            if detections[j].prob[idx] > 0:
-                bbox = detections[j].bbox
-                bbox = (bbox.x, bbox.y, bbox.w, bbox.h)
-                # x1 = int(bbox.x - b.w / 2.)
-                # y1 = int(b.y - b.h / 2.)
-                # x2 = int(b.x + b.w / 2.)
-                # y2 = int(b.y + b.h / 2.)
-                # x1 = x1 if x1 >= 0 else 0
-                # y1 = y1 if y1 >= 0 else 0
-                # x2 = x2 if x2 <= im.w else im.w
-                # y2 = y2 if y2 <= im.h else im.h
-                predictions.append((name, detections[j].prob[idx], (bbox)))
-    return predictions
-
-def detect_image(network, class_names, image, thresh=.5, hier_thresh=.5, nms=.45):
-    """
-        Returns a list with highest confidence class and their bbox
-    """
-    pnum = pointer(c_int(0))
-    predict_image(network, image)
-    detections = get_network_boxes(network, image.w, image.h,
-                                   thresh, hier_thresh, None, 0, pnum, 0)
-    num = pnum[0]
-    if nms:
-        do_nms_sort(detections, num, len(class_names), nms)
-    predictions = remove_negatives(detections, class_names, num)
-    predictions = decode_detection(predictions)
-    free_detections(detections, num)
-    return sorted(predictions, key=lambda x: x[1])
+    return network, class_names
 
 class Darknet(Process):
     def __init__(self, index, numGpus, threshold, detectQueue, resultQueue):
@@ -186,13 +100,8 @@ class Darknet(Process):
         set_gpu(gpuIndex)
         print("Load darknet worker = {} with gpuIndex = {}".format(
             self.index, gpuIndex))
-        self.net, class_names ,class_colors= load_network(configPath,metaPath,weightPath,1)
-        #self.net = load_net(configPath, weightPath, 0)
+        self.net, class_names = load_network(configPath,metaPath,weightPath,1)
         self.meta = load_meta(metaPath1)
-        # for i in range(self.meta.classes):
-        #     self.meta.names[i] = self.meta.names[i].decode().replace(
-        #         ' ', '_').encode()
-        #     print("Classes : {}".format(self.meta.names[i]))
 
         print("darknet {} initialized".format(self.index))
 
@@ -237,6 +146,7 @@ class Darknet(Process):
         filepath = '{}/{}'.format(fullImageDir, filename)
 
         # detector.sendLogMessage(keyframe, "feed_network")
+
         if (nms):
             do_nms_sort(dets, num, len(class_names), nms)
         bboxes = []
