@@ -11,7 +11,7 @@ from datetime import datetime
 import time
 import base64
 import random
-
+import psutil #cpu usage check
 
 
 class BOX(Structure):
@@ -90,10 +90,12 @@ class Darknet(Process):
         self.detectQueue = detectQueue
         self.resultQueue = resultQueue
         self.isStop = Value(c_bool, False)
-        self.isDisplay = True
+        self.isDisplay = False
 
 
     def run(self):
+        cpu_usage5=psutil.cpu_percent()
+        print("5.CPU USAGE{}".format(cpu_usage5))
         setproctitle.setproctitle("Darknet {}".format(self.index))
         gpuIndex = (self.index % self.numGpus) + \
             ((int(os.environ['CONTAINER_INDEX']) - 1) * self.numGpus) + 1 if 'CONTAINER_INDEX' in os.environ else 0
@@ -107,6 +109,8 @@ class Darknet(Process):
 
         self.monitorDetectRate()
         while not self.isStop.value:
+            cpu_usage6=psutil.cpu_percent()
+            #print("6.CPU USAGE BEFORE nnDetect{}".format(cpu_usage6))
             try:
                 video_serial, keyframe, frame, time = self.detectQueue.get(
                     timeout=0.1)
@@ -114,6 +118,8 @@ class Darknet(Process):
                 self.nnDetect(video_serial, keyframe, frame, time,class_names)
             except Exception:
                 pass
+                cpu_usage7=psutil.cpu_percent()
+                #print("detectQueue empty video:{}".format(video_serial))
             sys.stdout.flush()
 
 

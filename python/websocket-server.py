@@ -44,6 +44,7 @@ import txaio
 import pprint
 import traceback
 import ptvsd
+import psutil
 
 # Allow other computers to attach to ptvsd at this IP address and port, using the secret
 # ptvsd.enable_attach("my_secret", address=('0.0.0.0', 3000))
@@ -130,6 +131,8 @@ class DarknetServerProtocol(WebSocketServerProtocol):
                 t.start()
             else:
                 darknet.initSaveImage()
+                cpu_usage3=psutil.cpu_percent()
+                print("3.CPU USAGE{}".format(cpu_usage3))
                 darknet.initDarknetWorkers(
                     self.numWorkers, self.numGpus, self.threshold, self.detectQueue, self.detectResultQueue)
 
@@ -340,9 +343,13 @@ def main(reactor):
 
 
 if __name__ == '__main__':
+    cpu_usage1=psutil.cpu_percent()
+    print("1.CPU USAGE{}".format(cpu_usage1))
     mp.set_start_method('spawn', force=True)
     mp.log_to_stderr()
     logger = mp.get_logger()
     logger.setLevel(logging.INFO)
     q = Queue()
+    cpu_usage2=psutil.cpu_percent()
+    print("2.CPU USAGE{}".format(cpu_usage2))
     task.react(main)

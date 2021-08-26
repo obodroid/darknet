@@ -60,6 +60,13 @@ class StreamVideo(Process):
             self.fps = self.stream.get(cv2.CAP_PROP_FPS)
             print("StreamVideo {} open VideoCapture at path {}, fps {}".format(
                 self.video_serial, self.path, self.fps))
+        elif self.path.startswith("http"):
+            os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"]= "rtsp_transport;udp"
+            print("http come this loop{}".format(self.path))
+            self.stream =cv2.VideoCapture(self.path)
+            self.fps = self.stream.get(cv2.CAP_PROP_FPS)
+            print("StreamVideo {} run VideoCapture at path {}, fps {} with http with encoder {}".format(
+                self.video_serial, self.path, self.fps, os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"]))
         else:
             print("StreamVideo {} error VideoCapture at path {} => try udp rtsp transport".format(
                 self.video_serial, self.path))
