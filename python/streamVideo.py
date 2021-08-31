@@ -68,19 +68,32 @@ class StreamVideo(Process):
             print("StreamVideo {} run VideoCapture at path {}, fps {} with http with encoder {}".format(
                 self.video_serial, self.path, self.fps, os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"]))
         else:
-            print("StreamVideo {} error VideoCapture at path {} => try udp rtsp transport".format(
-                self.video_serial, self.path))
 
             os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"].replace("tcp","udp")
+
+            print("StreamVideo {} error VideoCapture at path {} => try udp rtsp transport {}".format(
+                self.video_serial, self.path,os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"]))
+
             self.stream = cv2.VideoCapture(self.path)
             if self.stream.isOpened():
                 self.fps = self.stream.get(cv2.CAP_PROP_FPS)
                 print("StreamVideo {} run VideoCapture at path {}, fps {} with {}".format(
                     self.video_serial, self.path, self.fps, os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"]))
             else:
-                print("StreamVideo {} error VideoCapture at path {} => stop capturing".format(
-                    self.video_serial, self.path))
-                self.stop()
+                os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"]= "rtsp_transport;udp"
+                self.stream =cv2.VideoCapture(self.path)
+                self.fps = self.stream.get(cv2.CAP_PROP_FPS)
+                print("StreamVideo {} run VideoCapture at path {}, fps {} with encoder {}".format(
+                    self.video_serial, self.path, self.fps, os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"]))
+
+                if self.stream.isOpened():
+                    self.fps = self.stream.get(cv2.CAP_PROP_FPS)
+                    print("StreamVideo {} run VideoCapture at path {}, fps {} with {}".format(
+                        self.video_serial, self.path, self.fps, os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"]))
+                else:
+                    print("StreamVideo {} error VideoCapture at path {} => stop capturing".format(
+                        self.video_serial, self.path))
+                    self.stop()
 
         os.environ["OPENCV_FFMPEG_CAPTURE_OPTIONS"] = former_capture_options
 
