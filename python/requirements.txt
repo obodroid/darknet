@@ -28,6 +28,7 @@ autobahn == 18.12.1
 imagehash == 1.0
 twisted == 18.9.0
 ptvsd == 3.0.0
+psutil == 5.8.0
 websocket-client >= 0.50
 
 #requiremens for openpose (irrelevant)
