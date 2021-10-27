@@ -404,7 +404,7 @@ network_predict_batch.restype = POINTER(DETNUMPAIR)
 
 
 configPath = "/src/darknet/cfg/yolov4.cfg"
-weightPath = "/src/darknet/cfg/yolov4.weights"
+weightPath = "/src/data/yolo/yolov4.weights"
 metaPath = "/src/darknet/cfg/coco.data"
 metaPath1 = b'/src/darknet/cfg/coco.data'
 thresh = .6
