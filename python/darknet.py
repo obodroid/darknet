@@ -114,7 +114,6 @@ class Darknet(Process):
             try:
                 video_serial, keyframe, frame, time = self.detectQueue.get(
                     timeout=0.1)
-                print("start nn")
                 self.nnDetect(video_serial, keyframe, frame, time,class_names)
             except Exception:
                 pass
@@ -234,7 +233,6 @@ class Darknet(Process):
         }
 
         self.resultQueue.put([robotId, videoId, msg, frame, bboxes, confidences, objectTypes])
-        print("send resultQueue")
         if self.isDisplay:
             print("Darknet {} show frame".format(video_serial))
             title = "detect : {}".format(video_serial)
