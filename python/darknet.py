@@ -94,11 +94,9 @@ class Darknet(Process):
 
 
     def run(self):
-        cpu_usage5=psutil.cpu_percent()
-        print("5.CPU USAGE{}".format(cpu_usage5))
         setproctitle.setproctitle("Darknet {}".format(self.index))
         gpuIndex = (self.index % self.numGpus) + \
-            ((int(os.environ['CONTAINER_INDEX']) - 1) * self.numGpus) + 1 if 'CONTAINER_INDEX' in os.environ else 0
+            ((int(os.environ['CONTAINER_INDEX']) - 1) * self.numGpus) if 'CONTAINER_INDEX' in os.environ else 0
         set_gpu(gpuIndex)
         print("Load darknet worker = {} with gpuIndex = {}".format(
             self.index, gpuIndex))
@@ -109,16 +107,12 @@ class Darknet(Process):
 
         self.monitorDetectRate()
         while not self.isStop.value:
-            cpu_usage6=psutil.cpu_percent()
-            #print("6.CPU USAGE BEFORE nnDetect{}".format(cpu_usage6))
             try:
                 video_serial, keyframe, frame, time = self.detectQueue.get(
                     timeout=0.1)
                 self.nnDetect(video_serial, keyframe, frame, time,class_names)
             except Exception:
                 pass
-                cpu_usage7=psutil.cpu_percent()
-                #print("detectQueue empty video:{}".format(video_serial))
             sys.stdout.flush()
 
 
@@ -272,9 +266,9 @@ def initSaveImage():
             except OSError as exc:  # Guard against race condition
                 print("OSError:cannot make directory.")
         else:
-            fileList = os.listdir(fullImageDir)
-            for fileName in fileList:
-                os.remove(fullImageDir + "/" + fileName)
+                fileList = os.listdir(fullImageDir)
+                for fileName in fileList:
+                    os.remove(fullImageDir + "/" + fileName)
 
 
 darknetWorkers = []
