@@ -131,8 +131,8 @@ class DarknetServerProtocol(WebSocketServerProtocol):
                 t.start()
             else:
                 darknet.initSaveImage()
-                cpu_usage3=psutil.cpu_percent()
-                print("3.CPU USAGE{}".format(cpu_usage3))
+                cpu_usage = psutil.cpu_percent()
+                print("3. CPU USAGE {}".format(cpu_usage))
                 darknet.initDarknetWorkers(
                     self.numWorkers, self.numGpus, self.threshold, self.detectQueue, self.detectResultQueue)
 
@@ -286,7 +286,8 @@ class DarknetServerProtocol(WebSocketServerProtocol):
                 else:
                     self.doSendResult(video_serial, msg)
             else:
-                cv2.waitKey(1)
+                # print('empty detect result queue')
+                time.sleep(0.1)
 
     def loopSendResult(self):
         while True:
@@ -295,7 +296,8 @@ class DarknetServerProtocol(WebSocketServerProtocol):
                 video_serial = robotId + "-" + videoId
                 self.doSendResult(video_serial, msg)
             else:
-                cv2.waitKey(1)
+                # print('empty tracking result queue')
+                time.sleep(0.1)
 
     def monitor(self, interval):
         t = threading.Timer(interval, self.monitor, [interval])
@@ -343,13 +345,13 @@ def main(reactor):
 
 
 if __name__ == '__main__':
-    cpu_usage1=psutil.cpu_percent()
-    print("1.CPU USAGE{}".format(cpu_usage1))
+    cpu_usage = psutil.cpu_percent()
+    print("1. CPU USAGE {}".format(cpu_usage))
     mp.set_start_method('spawn', force=True)
     mp.log_to_stderr()
     logger = mp.get_logger()
     logger.setLevel(logging.INFO)
     q = Queue()
-    cpu_usage2=psutil.cpu_percent()
-    print("2.CPU USAGE{}".format(cpu_usage2))
+    cpu_usage = psutil.cpu_percent()
+    print("2. CPU USAGE {}".format(cpu_usage))
     task.react(main)

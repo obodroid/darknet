@@ -94,8 +94,6 @@ class Darknet(Process):
 
 
     def run(self):
-        cpu_usage5=psutil.cpu_percent()
-        print("5.CPU USAGE{}".format(cpu_usage5))
         setproctitle.setproctitle("Darknet {}".format(self.index))
         gpuIndex = (self.index % self.numGpus) + \
             ((int(os.environ['CONTAINER_INDEX']) - 1) * self.numGpus) + 1 if 'CONTAINER_INDEX' in os.environ else 0
@@ -109,18 +107,16 @@ class Darknet(Process):
 
         self.monitorDetectRate()
         while not self.isStop.value:
-            cpu_usage6=psutil.cpu_percent()
-            #print("6.CPU USAGE BEFORE nnDetect{}".format(cpu_usage6))
             try:
-                video_serial, keyframe, frame, time = self.detectQueue.get(
+                video_serial, keyframe, frame, frame_time = self.detectQueue.get(
                     timeout=0.1)
-                self.nnDetect(video_serial, keyframe, frame, time,class_names)
+                self.nnDetect(video_serial, keyframe, frame, frame_time, class_names)
             except Exception:
-                pass
-                cpu_usage7=psutil.cpu_percent()
-                #print("detectQueue empty video:{}".format(video_serial))
+                print("darknet {} detect queue empty".format(self.index))
+                cpu_usage = psutil.cpu_percent()
+                print("darknet {} CPU USAGE {}".format(self.index, cpu_usage))
+                time.sleep(1)
             sys.stdout.flush()
-
 
     def monitorDetectRate(self):
         t = threading.Timer(1.0, self.monitorDetectRate)
@@ -130,7 +126,7 @@ class Darknet(Process):
         self.detectCount = 0
 
 
-    def nnDetect(self, video_serial, keyframe, frame, time,class_names):
+    def nnDetect(self, video_serial, keyframe, frame, frame_time, class_names):
         self.detectCount += 1
         print("darknet {} nnDetect {}, keyframe {}".format(
             self.index, video_serial, keyframe))
@@ -228,7 +224,7 @@ class Darknet(Process):
                 "height": im.h,
             },
             "detectedObjects": detectedObjects,
-            "frame_time": time.isoformat(),
+            "frame_time": frame_time.isoformat(),
             "detect_time": datetime.now().isoformat(),
         }
 
