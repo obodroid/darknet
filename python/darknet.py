@@ -97,6 +97,11 @@ class Darknet(Process):
         setproctitle.setproctitle("Darknet {}".format(self.index))
         gpuIndex = (self.index % self.numGpus) + \
             ((int(os.environ['CONTAINER_INDEX']) - 1) * self.numGpus) + 1 if 'CONTAINER_INDEX' in os.environ else 0
+
+        totalNumGpus = int(os.environ['CUDA_VISIBLE_DEVICES']) if 'CUDA_VISIBLE_DEVICES' in os.environ else 1
+        print("Total num gpus: {}".format(totalNumGpus))
+        gpuIndex = gpuIndex if gpuIndex < totalNumGpus else totalNumGpus - 1
+
         set_gpu(gpuIndex)
         print("Load darknet worker = {} with gpuIndex = {}".format(
             self.index, gpuIndex))
